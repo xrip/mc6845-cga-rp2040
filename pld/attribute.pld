@@ -1,19 +1,79 @@
 GAL16V8       ; Chip Type: ATF16V8B / GAL16V8
 CGAATTRIB     ; Project Name (max 8 chars)
 
+; ========================================================================
+; TEXT MODE COLOR ATTRIBUTE PROCESSOR
+; ========================================================================
+; This GAL implements color multiplexing for text mode display. It takes
+; a single pixel bit and 8-bit color attribute data, then generates the
+; appropriate 4-bit RGBI color output based on whether the pixel represents
+; foreground or background. The Display Enable signal gates all outputs
+; to create proper blanking during sync periods.
+
 ; Pin Assignment
-; Line 1: Pins 1 -> 10  
-; Line 2: Pins 11 -> 20
+; Line 1: Pins 1 -> 10  (Input pins)
+; Line 2: Pins 11 -> 20 (Output pins + power)
 Clock FG0    FG1     FG2    FG3     BG0     BG1     BG2     BG3     GND
 DE    PIXEL  NC      NC     NC      R       G       B       I       VCC
 
-; Logic Equations
-I = PIXEL * FG3 * DE + /PIXEL * BG3 * DE  ; Intensity
-R = PIXEL * FG2 * DE + /PIXEL * BG2 * DE  ; Red  
-G = PIXEL * FG1 * DE + /PIXEL * BG1 * DE  ; Green
-B = PIXEL * FG0 * DE + /PIXEL * BG0 * DE  ; Blue
+; Input Signal Descriptions:
+; Clock - System clock (not used in this combinational design)
+; FG0-3 - Foreground color attribute bits (4-bit RGBI value)
+;         FG0=Blue, FG1=Green, FG2=Red, FG3=Intensity
+; BG0-3 - Background color attribute bits (4-bit RGBI value)  
+;         BG0=Blue, BG1=Green, BG2=Red, BG3=Intensity
+; DE    - Display Enable from MC6845 (active high during visible area)
+; PIXEL - Single pixel bit from character.pld (1=foreground, 0=background)
+
+; Output Signal Descriptions:
+; R - Red component of final RGBI output
+; G - Green component of final RGBI output  
+; B - Blue component of final RGBI output
+; I - Intensity component of final RGBI output
+
+; CGA Color Attribute Format (8 bits total):
+; Bit 7-4: Foreground color (IRGB)
+; Bit 3-0: Background color (IRGB)
+; Standard CGA colors:
+; 0000=Black, 0001=Blue, 0010=Green, 0011=Cyan
+; 0100=Red,   0101=Magenta, 0110=Brown, 0111=Light Gray
+; 1000=Dark Gray, 1001=Light Blue, 1010=Light Green, 1011=Light Cyan
+; 1100=Light Red, 1101=Light Magenta, 1110=Yellow, 1111=White
+
+; Logic Equations - Color Multiplexer Implementation
+
+; INTENSITY OUTPUT: Select between foreground/background intensity based on pixel
+; When PIXEL=1: Use foreground intensity (FG3)
+; When PIXEL=0: Use background intensity (BG3)
+; DE gates the output (0 during blanking periods)
+I = PIXEL * FG3 * DE + /PIXEL * BG3 * DE
+
+; RED OUTPUT: Select between foreground/background red based on pixel
+; When PIXEL=1: Use foreground red (FG2)
+; When PIXEL=0: Use background red (BG2)
+; DE gates the output (0 during blanking periods)
+R = PIXEL * FG2 * DE + /PIXEL * BG2 * DE
+
+; GREEN OUTPUT: Select between foreground/background green based on pixel
+; When PIXEL=1: Use foreground green (FG1)
+; When PIXEL=0: Use background green (BG1)
+; DE gates the output (0 during blanking periods)
+G = PIXEL * FG1 * DE + /PIXEL * BG1 * DE
+
+; BLUE OUTPUT: Select between foreground/background blue based on pixel
+; When PIXEL=1: Use foreground blue (FG0)
+; When PIXEL=0: Use background blue (BG0)
+; DE gates the output (0 during blanking periods)
+B = PIXEL * FG0 * DE + /PIXEL * BG0 * DE
 
 DESCRIPTION
 It takes VIDEOOUT pixel from character.pld and mux color with it if DE is active
+
+Brief Description:
+This GAL16V8 functions as a color multiplexer for text mode display. It receives
+a 1-bit pixel signal and 8-bit color attributes (4-bit foreground + 4-bit background),
+then selects between foreground/background colors based on the pixel value. The Display
+Enable (DE) signal gates the output to create proper blanking during sync periods.
+Outputs 4-bit RGBI color signals compatible with CGA color standards.
 
 

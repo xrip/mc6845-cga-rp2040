@@ -1,51 +1,100 @@
 GAL20V8       ; Chip Type: ATF20V8B / GAL20V8
 CGAGRAPH      ; Project Name
 
+; ========================================================================
+; CGA 320x200 4-COLOR GRAPHICS MODE PROCESSOR
+; ========================================================================
+; This GAL20V8 implements a complete video processor for CGA 320x200 graphics
+; mode. It handles pixel unpacking, color generation, and timing for 4-color
+; graphics display. The design uses De Morgan's optimization to fit within
+; the product term limits of the GAL20V8 architecture.
+;
+; GRAPHICS MODE OPERATION:
+; - Each byte from video memory contains 4 pixels (2 bits per pixel)
+; - Pixels are packed as: [D7,D6]=Pixel3, [D5,D4]=Pixel2, [D3,D2]=Pixel1, [D1,D0]=Pixel0
+; - 2-bit pixel counter cycles through pixels 0→1→2→3 on each DOTCLK
+; - Each 2-bit pixel value selects one of 4 possible colors
+; - PALETTE and INTENSITY inputs provide additional color control
+
 ; --- Pin Assignments (24-pin DIP Package) ---
-; Line 1: Pins 1 -> 12
+; Line 1: Pins 1 -> 12 (Input pins)
 DOTCLK D7 D6 D5 D4 D3 D2 D1 D0 PALETTE INTENSITY GND
-; Line 2: Pins 13 -> 24
+; Line 2: Pins 13 -> 24 (Output pins + power)
 /OE    DE NC NC Q1 Q0 B G R I NC        VCC
+
+; Input Signal Descriptions:
+; DOTCLK    - Pixel clock (~14.318MHz for CGA timing)
+; D7-D0     - 8-bit data from video memory (4 pixels, 2 bits each)
+; PALETTE   - Palette select (0=palette0, 1=palette1) 
+; INTENSITY - Intensity enable (adds intensity bit to all colors)
+; DE        - Display Enable (active during visible area)
+
+; Output Signal Descriptions:
+; Q1,Q0     - 2-bit pixel counter (selects which pixel to display)
+; R,G,B,I   - 4-bit RGBI color output for current pixel
+
+; PIXEL PACKING FORMAT (8 bits = 4 pixels):
+; Bit 7,6: Pixel 3 (rightmost pixel in character)
+; Bit 5,4: Pixel 2  
+; Bit 3,2: Pixel 1
+; Bit 1,0: Pixel 0 (leftmost pixel in character)
+
+; CGA 4-COLOR PALETTE MAPPING:
+; Pixel Value | Palette 0        | Palette 1
+; 00 (0)      | Background       | Background  
+; 01 (1)      | Green            | Cyan
+; 10 (2)      | Red              | Magenta  
+; 11 (3)      | Brown/Yellow     | Light Gray/White
 
 ; --- Logic Equations ---
 
-; --- 1. Internal 2-bit Synchronous Pixel Counter ---
-Q0.R = /Q0
-Q1.R = Q1 * /Q0 + /Q1 * Q0
+; --- 1. PIXEL COUNTER: 2-bit synchronous counter for pixel selection ---
+; Counts 00→01→10→11→00... to select pixel within byte
+; Q1,Q0 = 00: Select pixel 0 (bits D1,D0)
+; Q1,Q0 = 01: Select pixel 1 (bits D3,D2)  
+; Q1,Q0 = 10: Select pixel 2 (bits D5,D4)
+; Q1,Q0 = 11: Select pixel 3 (bits D7,D6)
 
-; --- 2. Color Generation Logic (Optimized for Product Terms) ---
+Q0.R = /Q0          ; Q0 toggles every clock (LSB of counter)
+Q1.R = Q1 * /Q0 + /Q1 * Q0    ; Q1 toggles when Q0 goes 1→0
 
-; Green is active if the selected pixel's LSB is 1. (4 terms, fits easily)
-G = DE * /Q1 * /Q0 * D0
-  + DE * /Q1 *  Q0 * D2
-  + DE *  Q1 * /Q0 * D4
-  + DE *  Q1 *  Q0 * D6
+; --- 2. COLOR GENERATION: Extract 2-bit pixel and convert to RGBI ---
 
-; Red is active if the selected pixel's MSB is 1. (4 terms, fits easily)
-R = DE * /Q1 * /Q0 * D1
-  + DE * /Q1 *  Q0 * D3
-  + DE *  Q1 * /Q0 * D5
-  + DE *  Q1 *  Q0 * D7
+; GREEN CHANNEL: Active when pixel LSB = 1
+; For each counter state, check the LSB of the corresponding pixel
+G = DE * /Q1 * /Q0 * D0    ; Counter=00: Check pixel 0 LSB (D0)
+  + DE * /Q1 *  Q0 * D2    ; Counter=01: Check pixel 1 LSB (D2)
+  + DE *  Q1 * /Q0 * D4    ; Counter=10: Check pixel 2 LSB (D4)
+  + DE *  Q1 *  Q0 * D6    ; Counter=11: Check pixel 3 LSB (D6)
 
-; --- De Morgan's Optimization for Blue and Intensity ---
-; We compute the inverse logic (/B and /I) which requires fewer terms.
-; The GAL will invert the signal back to active-high on the output pin.
+; RED CHANNEL: Active when pixel MSB = 1  
+; For each counter state, check the MSB of the corresponding pixel
+R = DE * /Q1 * /Q0 * D1    ; Counter=00: Check pixel 0 MSB (D1)
+  + DE * /Q1 *  Q0 * D3    ; Counter=01: Check pixel 1 MSB (D3)
+  + DE *  Q1 * /Q0 * D5    ; Counter=10: Check pixel 2 MSB (D5)
+  + DE *  Q1 *  Q0 * D7    ; Counter=11: Check pixel 3 MSB (D7)
 
-; Blue output should be LOW if DE is low, PALETTE is low, OR the pixel is background.
-/B = /DE
-   + /PALETTE
-   + /Q1 * /Q0 * /D1 * /D0  ; Pixel 0 is background
-   + /Q1 *  Q0 * /D3 * /D2  ; Pixel 1 is background
-   +  Q1 * /Q0 * /D5 * /D4  ; Pixel 2 is background
-   +  Q1 *  Q0 * /D7 * /D6  ; Pixel 3 is background
+; --- 3. DE MORGAN'S OPTIMIZATION FOR BLUE AND INTENSITY ---
+; Computing /B and /I requires fewer product terms than computing B and I directly.
+; The GAL automatically inverts the output, giving us the correct polarity.
 
-; Intensity output should be LOW if DE is low, INTENSITY is low, OR the pixel is background.
-/I = /DE
-   + /INTENSITY
-   + /Q1 * /Q0 * /D1 * /D0  ; Pixel 0 is background
-   + /Q1 *  Q0 * /D3 * /D2  ; Pixel 1 is background
-   +  Q1 * /Q0 * /D5 * /D4  ; Pixel 2 is background
-   +  Q1 *  Q0 * /D7 * /D6  ; Pixel 3 is background
+; BLUE CHANNEL: Active for palette colors and non-background pixels
+; Blue is OFF (=0) when: DE=0 OR PALETTE=0 OR current pixel=background(00)
+/B = /DE                              ; Always off during blanking
+   + /PALETTE                         ; Off when palette 0 selected
+   + /Q1 * /Q0 * /D1 * /D0           ; Counter=00: OFF if pixel 0 = 00 (background)
+   + /Q1 *  Q0 * /D3 * /D2           ; Counter=01: OFF if pixel 1 = 00 (background)
+   +  Q1 * /Q0 * /D5 * /D4           ; Counter=10: OFF if pixel 2 = 00 (background)
+   +  Q1 *  Q0 * /D7 * /D6           ; Counter=11: OFF if pixel 3 = 00 (background)
+
+; INTENSITY CHANNEL: Active when intensity enabled and pixel non-background
+; Intensity is OFF (=0) when: DE=0 OR INTENSITY=0 OR current pixel=background(00)
+/I = /DE                              ; Always off during blanking
+   + /INTENSITY                       ; Off when intensity disabled
+   + /Q1 * /Q0 * /D1 * /D0           ; Counter=00: OFF if pixel 0 = 00 (background)
+   + /Q1 *  Q0 * /D3 * /D2           ; Counter=01: OFF if pixel 1 = 00 (background)
+   +  Q1 * /Q0 * /D5 * /D4           ; Counter=10: OFF if pixel 2 = 00 (background)
+   +  Q1 *  Q0 * /D7 * /D6           ; Counter=11: OFF if pixel 3 = 00 (background)
 
 
 DESCRIPTION
@@ -58,3 +107,11 @@ Pinout Notes:
 - Pin 01 (DOTCLK): MUST be connected to the pixel clock source.
 - Pin 13 (/OE): MUST be tied to GROUND for the outputs to be active.
 - There is no reset logic in this version.
+
+Brief Description:
+This GAL20V8 implements CGA 320x200 4-color graphics mode processing. It contains
+a 2-bit pixel counter that cycles through 4 pixels per byte, extracts 2-bit color
+values from 8-bit data input, and generates RGBI outputs. Uses De Morgan's optimization
+for Blue/Intensity channels to fit within GAL product term limits. Supports palette
+and intensity enable controls for flexible color mapping. Designed for direct
+interfacing with video memory and CGA-compatible displays.
