@@ -30,7 +30,8 @@
 // ---------------- System configuration ----------------
 #define SYSTEM_CLOCK_HZ       (400 * MHZ)  // 400 MHz RP2040 core
 //#define MC6845_CLOCK_FREQ     (1789772.2f)      // ~NTSC master clock / 10
-#define MC6845_CLOCK_FREQ     ((14.328 * MHZ) / 8)      /
+#define BASE_CLOCK_FREQ (14.31818 * MHZ)
+#define MC6845_CLOCK_FREQ     ((BASE_CLOCK_FREQ) / 8)      /
 
 // ---------------- Default register values ----------------
 static const uint8_t mc6845_defaults[16] = {
