@@ -1,109 +1,60 @@
-/*******************************************************************************
-*
-*   Name:      CGA_GRAPHICS_PROCESSOR
-*   PartNo:    ATF20V8B (or GAL20V8)
-*   Date:      25.09.2025
-*   Designer:  Gemini
-*   Company:   Google AI
-*   Revision:  1.0 - Final
-*
-*   Description:
-*   -------------
-*   Однокристальный видеопроцессор для графического режима CGA 320x200 4-color.
-*   Эта PLD принимает 8-битный байт из видеопамяти и, используя внутренний
-*   2-битный счетчик пикселей, последовательно преобразует его в 4-битный
-*   RGBI-сигнал для каждого из четырех пикселей.
-*
-*   Ключевые функции:
-*   - Внутренний 2-битный синхронный счетчик пикселей (Q1, Q0).
-*   - Внутренний мультиплексор 8-бит -> 2-бита.
-*   - Поддержка двух стандартных палитр CGA (PAL_SEL).
-*   - Поддержка высокой/низкой интенсивности (INTENSITY).
-*   - Выходной гейт по сигналу Display Enable (DE).
-*   - Асинхронный сброс (nRESET) для инициализации счетчика.
-*
-*******************************************************************************/
+GAL20V8       ; Chip Type: ATF20V8B / GAL20V8
+CGAGRAPH      ; Project Name
 
-/* Pin Assignments for a 24-pin DIP package */
-PIN 1  = DOTCLK;    /* Вход: Тактовый сигнал пикселей (14.318 MHz) */
-PIN 2  = D7;        /* Вход: Бит 7 из видеопамяти (Пиксель 3, старший бит) */
-PIN 3  = D6;        /* Вход: Бит 6 из видеопамяти (Пиксель 3, младший бит) */
-PIN 4  = D5;        /* Вход: Бит 5 из видеопамяти (Пиксель 2, старший бит) */
-PIN 5  = D4;        /* Вход: Бит 4 из видеопамяти (Пиксель 2, младший бит) */
-PIN 6  = D3;        /* Вход: Бит 3 из видеопамяти (Пиксель 1, старший бит) */
-PIN 7  = D2;        /* Вход: Бит 2 из видеопамяти (Пиксель 1, младший бит) */
-PIN 8  = D1;        /* Вход: Бит 1 из видеопамяти (Пиксель 0, старший бит) */
-PIN 9  = D0;        /* Вход: Бит 0 из видеопамяти (Пиксель 0, младший бит) */
-PIN 10 = nRESET;    /* Вход: Активный низкий сброс для счетчика */
-PIN 13 = DE;        /* Вход: Display Enable от MC6845 */
-PIN 14 = PAL_SEL;   /* Вход: Выбор палитры (0 = G/R/Y, 1 = C/M/W) */
-PIN 15 = INTENSITY; /* Вход: Выбор интенсивности (0 = Low, 1 = High) */
-PIN 12 = GND;
-PIN 24 = VCC;
+; --- Pin Assignments (24-pin DIP Package) ---
+; Line 1: Pins 1 -> 12
+DOTCLK D7 D6 D5 D4 D3 D2 D1 D0 PALETTE INTENSITY GND
+; Line 2: Pins 13 -> 24
+/OE    DE NC NC Q1 Q0 B G R I NC        VCC
 
-/* Выходные пины счетчика (можно не подключать, используются внутри) */
-PIN 17 = Q1;        /* Выход: MSB счетчика пикселей */
-PIN 18 = Q0;        /* Выход: LSB счетчика пикселей */
+; --- Logic Equations ---
 
-/* Финальные видеовыходы */
-PIN 22 = I;         /* Выход: Intensity */
-PIN 21 = R;         /* Выход: Red */
-PIN 20 = G;         /* Выход: Green */
-PIN 19 = B;         /* Выход: Blue */
+; --- 1. Internal 2-bit Synchronous Pixel Counter ---
+Q0.R = /Q0
+Q1.R = Q1 * /Q0 + /Q1 * Q0
 
-/* Внутренние "виртуальные" узлы для чистоты кода */
-NODE PIXEL0, PIXEL1; /* 2-битный индекс цвета после мультиплексора */
+; --- 2. Color Generation Logic (Optimized for Product Terms) ---
 
-/* Назначение тактового сигнала и сброса для регистровых выходов */
-[Q1, Q0].CLK = DOTCLK;
-[Q1, Q0].AR = nRESET;
+; Green is active if the selected pixel's LSB is 1. (4 terms, fits easily)
+G = DE * /Q1 * /Q0 * D0
+  + DE * /Q1 *  Q0 * D2
+  + DE *  Q1 * /Q0 * D4
+  + DE *  Q1 *  Q0 * D6
 
-/************************* ЛОГИЧЕСКИЕ УРАВНЕНИЯ *************************/
+; Red is active if the selected pixel's MSB is 1. (4 terms, fits easily)
+R = DE * /Q1 * /Q0 * D1
+  + DE * /Q1 *  Q0 * D3
+  + DE *  Q1 * /Q0 * D5
+  + DE *  Q1 *  Q0 * D7
 
-/* --- 1. Логика 2-битного синхронного счетчика (Q1, Q0) --- */
-/* Счетчик считает: 00 -> 01 -> 10 -> 11 -> 00 ... */
-/* D-вход для триггера Q0 (LSB): всегда инвертируется */
-Q0.D = !Q0;
-/* D-вход для триггера Q1 (MSB): инвертируется, когда Q0=1 */
-Q1.D = Q1 :+: Q0;  /* XOR - классическая логика для двоичного счетчика */
+; --- De Morgan's Optimization for Blue and Intensity ---
+; We compute the inverse logic (/B and /I) which requires fewer terms.
+; The GAL will invert the signal back to active-high on the output pin.
+
+; Blue output should be LOW if DE is low, PALETTE is low, OR the pixel is background.
+/B = /DE
+   + /PALETTE
+   + /Q1 * /Q0 * /D1 * /D0  ; Pixel 0 is background
+   + /Q1 *  Q0 * /D3 * /D2  ; Pixel 1 is background
+   +  Q1 * /Q0 * /D5 * /D4  ; Pixel 2 is background
+   +  Q1 *  Q0 * /D7 * /D6  ; Pixel 3 is background
+
+; Intensity output should be LOW if DE is low, INTENSITY is low, OR the pixel is background.
+/I = /DE
+   + /INTENSITY
+   + /Q1 * /Q0 * /D1 * /D0  ; Pixel 0 is background
+   + /Q1 *  Q0 * /D3 * /D2  ; Pixel 1 is background
+   +  Q1 * /Q0 * /D5 * /D4  ; Pixel 2 is background
+   +  Q1 *  Q0 * /D7 * /D6  ; Pixel 3 is background
 
 
-/* --- 2. Логика внутреннего мультиплексора (8-бит -> 2-бита) --- */
-/* Выбираем младший бит индекса (PIXEL0) */
-PIXEL0 = (!Q1 & !Q0 & D0)  /* Счетчик 00, выбираем D0 */
-       # (!Q1 &  Q0 & D2)  /* Счетчик 01, выбираем D2 */
-       # ( Q1 & !Q0 & D4)  /* Счетчик 10, выбираем D4 */
-       # ( Q1 &  Q0 & D6); /* Счетчик 11, выбираем D6 */
+DESCRIPTION
+A single-chip video processor for the CGA 320x200 4-color graphics mode.
+This version (2.1) is optimized to fit within the product term limits of a
+GAL20V8 by implementing the logic for the B and I channels in an inverted
+(active-low) form, a technique known as De Morgan's optimization.
 
-/* Выбираем старший бит индекса (PIXEL1) */
-PIXEL1 = (!Q1 & !Q0 & D1)  /* Счетчик 00, выбираем D1 */
-       # (!Q1 &  Q0 & D3)  /* Счетчик 01, выбираем D3 */
-       # ( Q1 & !Q0 & D5)  /* Счетчик 10, выбираем D5 */
-       # ( Q1 &  Q0 & D7); /* Счетчик 11, выбираем D7 */
-
-
-/* --- 3. Логика таблицы цветов CGA (Color LUT) --- */
-FIELD index = [PIXEL1, PIXEL0];
-NODE is_color1, is_color2, is_color3;
-
-is_color1 = (index:[1]); /* Индекс '01' */
-is_color2 = (index:[2]); /* Индекс '10' */
-is_color3 = (index:[3]); /* Индекс '11' */
-
-/* Предварительные расчеты цвета (до применения DE и фона) */
-NODE I_pre, R_pre, G_pre, B_pre;
-
-I_pre = INTENSITY;
-B_pre = PAL_SEL & (is_color1 # is_color2 # is_color3);
-G_pre = !PAL_SEL & (is_color1 # is_color3) # PAL_SEL & (is_color1 # is_color3);
-R_pre = !PAL_SEL & (is_color2 # is_color3) # PAL_SEL & (is_color2 # is_color3);
-
-
-/* --- 4. Финальный выходной гейт --- */
-/* Выдаем цвет только если DE=1 и индекс цвета не равен '00' (фон) */
-NODE is_not_background = PIXEL0 # PIXEL1;
-
-I = I_pre & is_not_background & DE;
-R = R_pre & is_not_background & DE;
-G = G_pre & is_not_background & DE;
-B = B_pre & is_not_background & DE;
+Pinout Notes:
+- Pin 01 (DOTCLK): MUST be connected to the pixel clock source.
+- Pin 13 (/OE): MUST be tied to GROUND for the outputs to be active.
+- There is no reset logic in this version.
