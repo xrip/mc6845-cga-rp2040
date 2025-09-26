@@ -1,0 +1,145 @@
+### **Техническая Спецификация: MC6845-Based Color Text Video Adapter**
+
+**Версия:** 1.0
+**Дата:** 25.09.2025
+
+#### **1.0 Обзор и цели проекта**
+
+**1.1. Цель:**
+Разработать аппаратный видеоадаптер для вывода статичного цветного текстового изображения на VGA-монитор. Система эмулирует ключевые принципы работы классических видеоадаптеров (MDA/CGA), но с использованием программируемой логики (GAL/ATF) для минимизации количества компонентов и повышения гибкости.
+
+**1.2. Ключевые функциональные требования:**
+*   **Контроллер:** Управление таймингами и адресацией осуществляется микросхемой Motorola MC6845 CRTC.
+*   **Видеопамять:** На начальном этапе для хранения отображаемых данных (ASCII-кодов и атрибутов) используются ПЗУ (EPROM). Архитектура должна предусматривать простую замену ПЗУ на ОЗУ (SRAM) в будущем для реализации динамического вывода.
+*   **Знакогенератор:** Для преобразования ASCII-кодов в пиксельные паттерны используется ПЗУ.
+*   **Логическое ядро:** Вся вспомогательная "клеевая" логика (glue logic), включая генерацию таймингов, обработку курсора и управление цветом, реализуется на двух микросхемах программируемой логики ATF16V8.
+*   **Вывод:** Система формирует 4-битный цифровой цветной сигнал (RGBI), который может быть преобразован в аналоговый VGA-сигнал.
+*   **Аппаратный курсор:** Система должна поддерживать аппаратный инверсный курсор, управляемый MC6845.
+
+#### **2.0 Архитектура системы и компоненты**
+
+Система состоит из следующих ключевых компонентов, взаимодействующих в рамках двух параллельных потоков данных (символы и атрибуты), которые смешиваются на финальном этапе.
+
+*   **MC6845:** Master-контроллер. Генерирует адреса для видеопамяти (`MA0-MA13`) и адреса строк сканирования для знакогенератора (`RA0-RA4`). Также выдает сигналы синхронизации (`HSYNC`, `VSYNC`), разрешения вывода (`DE`) и активности курсора (`CURSOR`).
+*   **Text ROM (EPROM 27128):** Видеопамять для символов. По адресу `MA` от MC6845 выдает 8-битный ASCII-код.
+*   **Attribute ROM (вторая EPROM 27128):** Видеопамять для атрибутов. Работает параллельно с Text ROM. По тому же адресу `MA` выдает 8-битный байт атрибута (4 бита для индекса цвета символа, 4 бита для индекса цвета фона).
+*   **Character ROM (EPROM 2764):** Знакогенератор. По адресу, составленному из ASCII-кода (от Text ROM) и адреса строки `RA` (от MC6845), выдает 8-битный пиксельный паттерн.
+*   **74HC165:** 8-битный сдвиговый регистр с параллельной загрузкой. Захватывает 8-битный паттерн от Character ROM и последовательно ("выплевывает") его по одному биту на выход (`PIXELS`).
+*   **ATF16V8 "character.pld":** Первая GAL. Выполняет функции процессора таймингов и эффектов.
+*   **ATF16V8 "attribute.pld":** Вторая GAL. Выполняет функции финального колорайзера и видео-гейта.
+
+#### **3.0 Взаимодействие компонентов и сигнал-флоу**
+
+Система работает в непрерывном цикле, управляемом тактовым генератором (Dot Clock).
+
+1.  **Генерация таймингов:** `character.pld` получает `DOTCLK`, делит его на 8 и генерирует `CHARCLK` для MC6845, а также синхронный импульс `!LOAD` для сдвигового регистра 74HC165.
+2.  **Адресация:** MC6845, тактируемый `CHARCLK`, выставляет на шину адреса `MA` и `RA`.
+3.  **Параллельное чтение данных:**
+    *   `Text ROM` и `Attribute ROM` одновременно получают адрес `MA` и выдают, соответственно, `ASCII-код` и `Байт Атрибута`.
+4.  **Генерация пикселей:**
+    *   `Character ROM` получает `ASCII-код` и `RA`, и выдает 8-битный паттерн пикселей.
+    *   `74HC165` по сигналу `!LOAD` захватывает этот паттерн и, тактируемый `DOTCLK`, начинает выдавать последовательный 1-битный `PIXEL_STREAM`.
+5.  **Последовательная обработка в GAL:**
+    *   **Этап 1 (character.pld):** Эта GAL принимает `PIXEL_STREAM` от 74HC165 и сигнал `CURSOR` от MC6845. Она выполняет операцию `PIXELS XOR CURSOR` и выдает на своем выходе `VIDEOOUT` уже обработанный 1-битный селектор пикселя.
+    *   **Этап 2 (attribute.pld):** Эта GAL является финальным каскадом. Она принимает:
+        *   `VIDEOOUT` от первой GAL на свой вход `PIXEL`.
+        *   8-битный `Байт Атрибута` (разделенный на входы `FG0-3` и `BG0-3`).
+        *   Сигнал `DE` от MC6845.
+    *   **Финальное смешивание:** `attribute.pld` использует `PIXEL` для выбора между цветом фона и символа, а затем умножает результат на `DE`, чтобы погасить сигнал в невидимых областях экрана. На выходе формируются 4 готовых сигнала `I, R, G, B`.
+
+#### **4.0 Спецификация программируемой логики (согласно предоставленным файлам)**
+
+**4.1. `character.pld` - Генератор таймингов и эффектов**
+*   **Назначение:** Создает все необходимые для работы системы тактовые сигналы и применяет эффект аппаратного курсора.
+*   **Входы:** `CLK/DOTCLK`, `PIXELS`, `RESET`, `HSYNCIN`, `VSYNCIN`, `CURSOR`.
+*   **Выходы:** `CHARCLK`, `/LOAD`, `VSYNCOUT`, `HSYNCOUT`, `VIDEOOUT` (промежуточный сигнал для `attribute.pld`).
+*   **Логика:**
+    *   Реализует 3-битный счётчик для деления `DOTCLK`.
+    *   Выдает `CHARCLK` как старший бит счётчика.
+    *   Генерирует `/LOAD` на основе состояния счётчика.
+    *   Инвертирует сигналы синхронизации.
+    *   Вычисляет `VIDEOOUT` как `PIXELS XOR CURSOR`.
+
+**4.2. `attribute.pld` - Финальный колорайзер**
+*   **Назначение:** Раскрашивает 1-битный видеопоток в соответствии с атрибутами и управляет видимостью сигнала.
+*   **Входы:** `FG0-3`, `BG0-3` (от Attribute ROM), `DE` (от MC6845), `PIXEL` (от `VIDEOOUT` из `character.pld`).
+*   **Выходы:** `R, G, B, I`.
+*   **Логика:**
+    *   Реализует 16-цветную палитру CGA путем прямого отображения битов индекса на биты RGBI.
+    *   Использует `PIXEL` как селектор в мультиплексоре 2-в-1 для выбора между цветом символа и фона.
+    *   Использует `DE` как финальный "вентиль" (gate), чтобы обнулить все выходы в периоды гашения.
+
+#### **5.0 Статус проекта и рекомендации для следующего этапа**
+
+Проект находится на стадии завершения логического дизайна. Архитектура определена.
+<character.pld>
+GAL16V8       ; Chip Type: ATF16V8B / GAL16V8
+CGACHAR       ; Project Name (max 8 chars)
+
+; Pinout Definition Block (Correct pin order for GALETTE)
+; Line 1: Pins 1 -> 10
+; Line 2: Pins 11 -> 20
+CLK   DOTCLK  PIXELS  RESET  HSYNCIN VSYNCIN CURSOR   NC       NC      GND
+/OE   CHARCLK Q0      Q1     /LOAD   Q2      VSYNCOUT HSYNCOUT VIDEOOUT VCC
+
+; Logic Equations Block
+
+; --- Combinational Outputs ---
+VIDEOOUT = PIXELS * /CURSOR + /PIXELS * CURSOR
+HSYNCOUT = /HSYNCIN
+VSYNCOUT = /VSYNCIN
+/LOAD = /Q2 + /Q1 + /Q0 + /DOTCLK
+
+; --- Registered Outputs  ---
+; 3-bit counter: Q2, Q1, Q0
+Q0.R = /RESET * /Q0
+Q1.R = /RESET * Q1 * /Q0 + /RESET * /Q1 * Q0
+Q2.R = /RESET * Q2 * /Q1 + /RESET * Q2 * /Q0 + /RESET * /Q2 * Q1 * Q0
+
+
+; CHARCLK = DOTCLK/8
+CHARCLK = Q2
+
+DESCRIPTION
+This GAL implements all the glue logic for a minimal MC6845-based
+static video display card, with hardware cursor support.
+
+Pinout:
+- Pin 02 (DOTCLK):   Short to Clock
+- Pin 11 (/OE):      MUST BE TIED TO GROUND for combinational outputs
+- Pin 12 (CHARCLK):  Character Clock for MC6845 (counter bit 2). Cause registered outputs no working!!?
+- Pin 13 (Q0):       Internal counter bit 0 (feedback only)
+- Pin 14 (Q1):       Internal counter bit 1 (feedback only)
+- Pin 15 (/LOAD):    Output, Active-low load pulse for shift register
+- Pin 16 (Q2):       Output, Character Clock for MC6845 (counter bit 2)
+- Pin 17 (VSYNCOUT): Output, Inverted VSYNC
+- Pin 18 (HSYNCOUT): Output, Inverted HSYNC
+- Pin 19 (VIDEOOUT): Output, Final video signal to DAC
+
+Counter Operation:
+- 3-bit counter Q2,Q1,Q0 counts: 0->1->2->3->4->5->6->7->0...
+- CHARCLK is DOTCLK / 4
+- /LOAD pulse generated when counter = 000 and CLK is low
+- RESET clears all counter bits
+</character.pld>
+
+<attribute.pld>
+GAL16V8       ; Chip Type: ATF16V8B / GAL16V8
+CGAATTRIB     ; Project Name (max 8 chars)
+
+; Pin Assignment
+; Line 1: Pins 1 -> 10  
+; Line 2: Pins 11 -> 20
+Clock FG0    FG1     FG2    FG3     BG0     BG1     BG2     BG3     GND
+DE    PIXEL  NC      NC     NC      R       G       B       I       VCC
+
+; Logic Equations
+I = PIXEL * FG3 * DE + /PIXEL * BG3 * DE  ; Intensity
+R = PIXEL * FG2 * DE + /PIXEL * BG2 * DE  ; Red  
+G = PIXEL * FG1 * DE + /PIXEL * BG1 * DE  ; Green
+B = PIXEL * FG0 * DE + /PIXEL * BG0 * DE  ; Blue
+
+DESCRIPTION
+It takes VIDEOOUT pixel from character.pld and mux color with it if DE is active
+</attribute.pdl>
+

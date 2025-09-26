@@ -1,0 +1,48 @@
+GAL16V8       ; Chip Type: ATF16V8B / GAL16V8
+CGACHAR       ; Project Name (max 8 chars)
+
+; Pinout Definition Block (Correct pin order for GALETTE)
+; Line 1: Pins 1 -> 10
+; Line 2: Pins 11 -> 20
+CLK   DOTCLK  PIXELS  RESET  HSYNCIN VSYNCIN CURSOR   NC       NC      GND
+/OE   CHARCLK Q0      Q1     /LOAD   Q2      VSYNCOUT HSYNCOUT VIDEOOUT VCC
+
+; Logic Equations Block
+
+; --- Combinational Outputs ---
+VIDEOOUT = PIXELS * /CURSOR + /PIXELS * CURSOR
+HSYNCOUT = /HSYNCIN
+VSYNCOUT = /VSYNCIN
+/LOAD = /Q2 + /Q1 + /Q0 + /DOTCLK
+
+; --- Registered Outputs  ---
+; 3-bit counter: Q2, Q1, Q0
+Q0.R = /RESET * /Q0
+Q1.R = /RESET * Q1 * /Q0 + /RESET * /Q1 * Q0
+Q2.R = /RESET * Q2 * /Q1 + /RESET * Q2 * /Q0 + /RESET * /Q2 * Q1 * Q0
+
+
+; CHARCLK = DOTCLK/8
+CHARCLK = Q2
+
+DESCRIPTION
+This GAL implements all the glue logic for a minimal MC6845-based
+static video display card, with hardware cursor support.
+
+Pinout:
+- Pin 02 (DOTCLK):   Short to Clock
+- Pin 11 (/OE):      MUST BE TIED TO GROUND for combinational outputs
+- Pin 12 (CHARCLK):  Character Clock for MC6845 (counter bit 2). Cause registered outputs no working!!?
+- Pin 13 (Q0):       Internal counter bit 0 (feedback only)
+- Pin 14 (Q1):       Internal counter bit 1 (feedback only) 
+- Pin 15 (/LOAD):    Output, Active-low load pulse for shift register
+- Pin 16 (Q2):       Output, Character Clock for MC6845 (counter bit 2)
+- Pin 17 (VSYNCOUT): Output, Inverted VSYNC
+- Pin 18 (HSYNCOUT): Output, Inverted HSYNC
+- Pin 19 (VIDEOOUT): Output, Final video signal to DAC
+
+Counter Operation:
+- 3-bit counter Q2,Q1,Q0 counts: 0->1->2->3->4->5->6->7->0...
+- CHARCLK is DOTCLK / 4
+- /LOAD pulse generated when counter = 000 and CLK is low
+- RESET clears all counter bits

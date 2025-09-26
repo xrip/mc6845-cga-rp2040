@@ -1,0 +1,25 @@
+
+
+                                GAL16V8
+
+                          -------\___/-------
+                      CLK |  1           20 | VCC
+                          |                 |
+                   DOTCLK |  2           19 | VIDEOOUT
+                          |                 |
+                   PIXELS |  3           18 | HSYNCOUT
+                          |                 |
+                    RESET |  4           17 | VSYNCOUT
+                          |                 |
+                  HSYNCIN |  5           16 | Q2
+                          |                 |
+                  VSYNCIN |  6           15 | /LOAD
+                          |                 |
+                   CURSOR |  7           14 | Q1
+                          |                 |
+                       NC |  8           13 | Q0
+                          |                 |
+                       NC |  9           12 | CHARCLK
+                          |                 |
+                      GND | 10           11 | /OE
+                          -------------------
