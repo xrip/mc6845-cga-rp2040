@@ -16,7 +16,7 @@
   12   | GND      | GND
   13   | /OE      | /OE
   14   | DE       | Input
-  15   | NC       | NC
+  15   | COMPOSITE | Output
   16   | NC       | NC
   17   | Q1       | Output
   18   | Q0       | Output

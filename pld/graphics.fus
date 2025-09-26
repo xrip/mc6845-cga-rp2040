@@ -70,13 +70,13 @@ Pin 16 = NC           XOR = 0   AC1 = 0
  54  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  55  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
 
-Pin 15 = NC           XOR = 0   AC1 = 0
- 56  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
- 57  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
- 58  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
- 59  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
- 60  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
- 61  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
+Pin 15 = COMPOSITE    XOR = 0   AC1 = 1
+ 56  ---- ---- ---- ---- ---- ---- ---- ---- ---- ----
+ 57  ---- ---- ---- ---- ---- ---- ---- ---- ---- ---x
+ 58  ---- ---- ---- ---- ---- ---x -x-x -x-- ---- ----
+ 59  ---- ---- ---- ---- -x-- -xx- ---x ---- ---- ----
+ 60  ---- ---- -x-- -x-- ---- ---x --x- ---- ---- ----
+ 61  -x-- -x-- ---- ---- ---- --x- --x- ---- ---- ----
  62  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  63  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
 

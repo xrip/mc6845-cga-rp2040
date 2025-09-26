@@ -14,7 +14,7 @@
   10   | GND      | GND
   11   | DE       | Input
   12   | PIXEL    | Input
-  13   | NC       | NC
+  13   | COMPOSITE | Output
   14   | NC       | NC
   15   | NC       | NC
   16   | R        | Output
