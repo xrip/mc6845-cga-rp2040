@@ -2,12 +2,16 @@ GAL20V8       ; Chip Type: ATF20V8B / GAL20V8
 CGAGRAPH      ; Project Name
 
 ; ========================================================================
-; CGA 320x200 4-COLOR GRAPHICS MODE PROCESSOR
+; CGA 320x200 4-COLOR GRAPHICS PROCESSOR V2.2 (with Composite Luma Output)
 ; ========================================================================
 ; This GAL20V8 implements a complete video processor for CGA 320x200 graphics
 ; mode. It handles pixel unpacking, color generation, and timing for 4-color
 ; graphics display. The design uses De Morgan's optimization to fit within
 ; the product term limits of the GAL20V8 architecture.
+; This version adds a dedicated binary COMPOSITE output pin. This signal
+; represents the luminance (brightness) and can be used to directly drive
+; a monochrome composite monitor or be mixed with sync signals, reducing
+; the need for an external RGBI resistor mixing network.
 ;
 ; GRAPHICS MODE OPERATION:
 ; - Each byte from video memory contains 4 pixels (2 bits per pixel)
@@ -20,7 +24,7 @@ CGAGRAPH      ; Project Name
 ; Line 1: Pins 1 -> 12 (Input pins)
 DOTCLK D7 D6 D5 D4 D3 D2 D1 D0 PALETTE INTENSITY GND
 ; Line 2: Pins 13 -> 24 (Output pins + power)
-/OE    DE NC NC Q1 Q0 B G R I NC        VCC
+/OE    DE COMPOSITE  NC Q1 Q0 B G R I NC        VCC
 
 ; Input Signal Descriptions:
 ; DOTCLK    - Pixel clock (~14.318MHz for CGA timing)
@@ -96,6 +100,16 @@ R = DE * /Q1 * /Q0 * D1    ; Counter=00: Check pixel 0 MSB (D1)
    +  Q1 * /Q0 * /D5 * /D4           ; Counter=10: OFF if pixel 2 = 00 (background)
    +  Q1 *  Q0 * /D7 * /D6           ; Counter=11: OFF if pixel 3 = 00 (background)
 
+
+; --- 3. NEW COMPOSITE LUMA CHANNEL ---
+; This signal is HIGH for any non-background color.
+; We use inverse logic to fit within product term limits.
+; COMPOSITE is LOW when: DE=0 OR current pixel=background(00)
+/COMPOSITE = /DE
+           + /Q1 * /Q0 * /D1 * /D0  ; Pixel 0 is background
+           + /Q1 *  Q0 * /D3 * /D2  ; Pixel 1 is background
+           +  Q1 * /Q0 * /D5 * /D4  ; Pixel 2 is background
+           +  Q1 *  Q0 * /D7 * /D6  ; Pixel 3 is background
 
 DESCRIPTION
 A single-chip video processor for the CGA 320x200 4-color graphics mode.

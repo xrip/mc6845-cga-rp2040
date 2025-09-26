@@ -13,8 +13,8 @@ CGAATTRIB     ; Project Name (max 8 chars)
 ; Pin Assignment
 ; Line 1: Pins 1 -> 10  (Input pins)
 ; Line 2: Pins 11 -> 20 (Output pins + power)
-Clock FG0    FG1     FG2    FG3     BG0     BG1     BG2     BG3     GND
-DE    PIXEL  NC      NC     NC      R       G       B       I       VCC
+Clock FG0    FG1         FG2    FG3     BG0     BG1     BG2     BG3     GND
+DE    PIXEL  COMPOSITE   NC     NC      R       G       B       I       VCC
 
 ; Input Signal Descriptions:
 ; Clock - System clock (not used in this combinational design)
@@ -65,6 +65,12 @@ G = PIXEL * FG1 * DE + /PIXEL * BG1 * DE
 ; When PIXEL=0: Use background blue (BG0)
 ; DE gates the output (0 during blanking periods)
 B = PIXEL * FG0 * DE + /PIXEL * BG0 * DE
+
+; --- NEW, CORRECTED COMPOSITE LUMA CHANNEL ---
+; The composite signal should represent the luminance of the final output.
+; The Intensity bit (I) is the perfect source for this luma signal.
+; This equation duplicates the logic for the 'I' output.
+COMPOSITE = PIXEL * FG3 * DE + /PIXEL * BG3 * DE
 
 DESCRIPTION
 It takes VIDEOOUT pixel from character.pld and mux color with it if DE is active
