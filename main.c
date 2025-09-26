@@ -10,6 +10,7 @@
 #include <hardware/structs/vreg_and_chip_reset.h>
 
 #include "clock_pio.h"
+#include "rom.h"
 
 // ---------------- Pin assignments ----------------
 #define PIN_MC6845_CS     26  // Chip Select (active low)
@@ -18,13 +19,13 @@
 #define PIN_MC6845_RW     29  // Read/Write (0=write, 1=read)
 #define PIN_MC6845_CLK    25  // Clock output pin
 
-#define PIN_DATA_BASE     17  // D0 = GPIO17 .. D7 = GPIO24
+#define PIN_DATA_BASE     17  // D0 = GPIO17 .. D7 = GPIO24 (MC6845 data bus)
 #define DATA_WIDTH        8
 
-#define PIN_MA_BASE       0   // MA0..MA13 → GPIO0..13
+#define PIN_MA_BASE       0   // MA0..MA13 → GPIO0..13 (MC6845 address inputs - read only)
 #define MA_WIDTH          14
 
-#define PIN_RA_BASE       14  // RA0..RA2 → GPIO14..16
+#define PIN_RA_BASE       14  // RA0..RA2 → GPIO14..16 (MC6845 row address inputs - read only)
 #define RA_WIDTH          3
 
 // ---------------- System configuration ----------------
@@ -32,6 +33,37 @@
 //#define MC6845_CLOCK_FREQ     (1789772.2f)      // ~NTSC master clock / 10
 #define BASE_CLOCK_FREQ (14.31818 * MHZ)
 #define MC6845_CLOCK_FREQ     ((BASE_CLOCK_FREQ) / 8)
+
+// ---------------- Video modes ----------------
+typedef enum {
+    VIDEO_MODE_TEXT = 0,
+    VIDEO_MODE_GRAPHICS = 1
+} video_mode_t;
+
+static video_mode_t current_video_mode = VIDEO_MODE_TEXT;
+
+// ---------------- Video memory emulation ----------------
+#define TEXT_BUFFER_SIZE (80 * 25)
+#define GRAPHICS_BUFFER_SIZE (8000)  // 320x200/4 pixels per byte
+
+// Simple test patterns for demonstration
+static uint8_t text_buffer[TEXT_BUFFER_SIZE];
+static uint8_t graphics_buffer[GRAPHICS_BUFFER_SIZE];
+// Атрибуты задаются перемычками, не хранятся в RP2040
+
+// Test pattern generation
+static void init_test_patterns(void) {
+    // Text mode: Fill with test characters
+    for (int i = 0; i < TEXT_BUFFER_SIZE; i++) {
+        text_buffer[i] = 0x20 + (i % 96); // ASCII printable chars
+        // Атрибуты будут браться из перемычек
+    }
+
+    // Graphics mode: Fill with test pattern
+    for (int i = 0; i < GRAPHICS_BUFFER_SIZE; i++) {
+        graphics_buffer[i] = i & 0xFF; // Simple pattern
+    }
+}
 
 // ---------------- Default register values ----------------
 static const uint8_t mc6845_defaults[16] = {
@@ -50,35 +82,27 @@ static const uint8_t mc6845_defaults[16] = {
     0x00, // R12: Start Addr (H)
     0x80, // R13: Start Addr (L)
     0x00, // R14: Cursor Addr (H)
-    0x80  // R15: Cursor Addr (L)
+    0x80 // R15: Cursor Addr (L)
 };
 
 // ==========================================================
 // Low-level helpers
 // ==========================================================
 
-static void data_bus_dir_out(void) {
-    for (int i = 0; i < DATA_WIDTH; i++) {
-        gpio_set_dir(PIN_DATA_BASE + i, GPIO_OUT);
-        gpio_set_pulls(PIN_DATA_BASE + i, false, false);
-    }
+static void data_bus_set_output(void) {
+    const uint32_t mask = 0xFF << PIN_DATA_BASE;
+    gpio_set_dir_masked(mask, mask);
 }
 
-static void data_bus_dir_in(void) {
-    for (int i = 0; i < DATA_WIDTH; i++) {
-        gpio_set_dir(PIN_DATA_BASE + i, GPIO_IN);
-        gpio_set_pulls(PIN_DATA_BASE + i, false, false);
-    }
-}
-
+// Вывод данных на шину данных MC6845 (используется для регистров и видеоданных)
 __always_inline static void data_bus_write(const uint8_t value) {
-    const uint32_t mask = ((1u << DATA_WIDTH) - 1u) << PIN_DATA_BASE;
-    gpio_put_masked(mask, (uint32_t)value << PIN_DATA_BASE);
+    const uint32_t mask = 0xFF << PIN_DATA_BASE;
+    gpio_put_masked(mask, (uint32_t) value << PIN_DATA_BASE);
 }
 
 __always_inline static uint8_t data_bus_read() {
-    const uint32_t mask = ((1u << DATA_WIDTH) - 1u) << PIN_DATA_BASE;
-    return (uint8_t)((gpio_get_all() & mask) >> PIN_DATA_BASE);
+    const uint32_t mask = 0xFF << PIN_DATA_BASE;
+    return (uint8_t) ((gpio_get_all() & mask) >> PIN_DATA_BASE);
 }
 
 // Active edge high→low on E
@@ -93,107 +117,61 @@ __always_inline static void pulse_enable(void) {
 // Register access
 // ==========================================================
 
-// Write a value into one MC6845 register
 static void mc6845_write_register(const uint8_t reg, const uint8_t value) {
-    // Write register index
-    data_bus_dir_out();
+    data_bus_set_output();
     gpio_put(PIN_MC6845_CS, 0);
-    gpio_put(PIN_MC6845_RW, 0); // write
-    gpio_put(PIN_MC6845_RS, 0); // address register
+    gpio_put(PIN_MC6845_RW, 0);
+
+    gpio_put(PIN_MC6845_RS, 0);
     data_bus_write(reg & 0x1F);
     pulse_enable();
 
-    // Write register value
-    gpio_put(PIN_MC6845_RS, 1); // data register
+    gpio_put(PIN_MC6845_RS, 1);
     data_bus_write(value);
     pulse_enable();
 
     gpio_put(PIN_MC6845_CS, 1);
 }
 
-// Read value from register (only valid for R14,R15,R16,R17 on original MC6845)
-static uint8_t mc6845_read_register(const uint8_t reg) {
-    // Write register index first
-    data_bus_dir_out();
-    gpio_put(PIN_MC6845_CS, 0);
-    gpio_put(PIN_MC6845_RW, 0);
-    gpio_put(PIN_MC6845_RS, 0);
-    data_bus_write(reg & 0x1F);
-    pulse_enable();
-
-    // Now read data
-    data_bus_dir_in();
-    gpio_put(PIN_MC6845_RS, 1);
-    gpio_put(PIN_MC6845_RW, 1);
-
-    gpio_put(PIN_MC6845_E, 1);
-    sleep_us(1);
-    gpio_put(PIN_MC6845_E, 0);
-    sleep_us(1);
-
-    const uint8_t value = data_bus_read();
-
-    gpio_put(PIN_MC6845_CS, 1);
-    return value;
-}
-
 // ==========================================================
 // Initialization
 // ==========================================================
 
-static void mc6845_init_gpio(void) {
-    // Control pins
-    gpio_init(PIN_MC6845_CS);
-    gpio_init(PIN_MC6845_RS);
-    gpio_init(PIN_MC6845_E);
-    gpio_init(PIN_MC6845_RW);
-
-    gpio_set_dir(PIN_MC6845_CS, GPIO_OUT);
-    gpio_set_dir(PIN_MC6845_RS, GPIO_OUT);
-    gpio_set_dir(PIN_MC6845_E, GPIO_OUT);
-    gpio_set_dir(PIN_MC6845_RW, GPIO_OUT);
-
-    gpio_put(PIN_MC6845_CS, 1); // deselect
+static void init_all_gpio(void) {
+    // MC6845 control pins
+    for (int i = 0; i < 4; i++) {
+        const uint8_t mc6845_pins[] = {PIN_MC6845_CS, PIN_MC6845_RS, PIN_MC6845_E, PIN_MC6845_RW};
+        gpio_init(mc6845_pins[i]);
+        gpio_set_dir(mc6845_pins[i], GPIO_OUT);
+    }
+    gpio_put(PIN_MC6845_CS, 1);
     gpio_put(PIN_MC6845_E, 0);
 
-    // Data bus (default input)
-    for (int i = 0; i < DATA_WIDTH; i++) {
-        gpio_init(PIN_DATA_BASE + i);
-        gpio_set_dir(PIN_DATA_BASE + i, GPIO_IN);
-        gpio_set_pulls(PIN_DATA_BASE + i, false, false);
+    // Data bus + Address monitoring
+    for (int i = 0; i < 25; i++) {
+        gpio_init(i);
+        gpio_set_dir(i, i < 17 ? GPIO_IN : GPIO_OUT);
     }
-}
 
-static void mc6845_init_chip(void) {
-    printf("Initializing MC6845...\n");
-
-    mc6845_init_gpio();
     init_clock_pio(pio0, SM_CLOCK, PIN_MC6845_CLK, MC6845_CLOCK_FREQ);
 
+    // Setup MC6845 registers
     for (int r = 0; r < 16; r++) {
         mc6845_write_register(r, mc6845_defaults[r]);
-        sleep_us(10);
-    }
-    printf("Default register values for 80x24 text mode written.\n\n");
-}
-
-// Инициализация GPIO как входов для MA/RA
-static void mc6845_init_address_inputs(void) {
-    for (int i = 0; i < MA_WIDTH; i++) {
-        gpio_init(PIN_MA_BASE + i);
-        gpio_set_dir(PIN_MA_BASE + i, GPIO_IN);
-        gpio_set_pulls(PIN_MA_BASE + i, false, false);
-    }
-    for (int i = 0; i < RA_WIDTH; i++) {
-        gpio_init(PIN_RA_BASE + i);
-        gpio_set_dir(PIN_RA_BASE + i, GPIO_IN);
-        gpio_set_pulls(PIN_RA_BASE + i, false, false);
     }
 }
 
 
+static void process_video_address(const uint16_t address, const uint8_t row) {
+    if (current_video_mode == VIDEO_MODE_TEXT) {
+        data_bus_write(cga_font_8x8[text_buffer[address] * 8 + row]);
+    } else if (current_video_mode == VIDEO_MODE_GRAPHICS) {
+        data_bus_write(graphics_buffer[address]);
+    }
+}
 
-[[noreturn]] int main() {
+
+void main() {
     // Configure RP2040 system clock
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     set_sys_clock_hz(SYSTEM_CLOCK_HZ, true);
@@ -202,39 +180,24 @@ static void mc6845_init_address_inputs(void) {
     stdio_usb_init();
     busy_wait_ms(1000);
 
-    printf("\nMC6845 demo start!\n");
+    printf("CGA Video Emulator\nCommands: t/g/r\n");
 
-    mc6845_init_chip();
-    mc6845_init_address_inputs();
+    init_all_gpio();
+    init_test_patterns();
 
-    // Dump back register values
-    for (int r = 0; r < 16; r++) {
-        printf("R%02d = 0x%02X\n", r, mc6845_read_register(r));
-        sleep_us(30);
-    }
-
-    // Light pen registers
-    const uint8_t lp_hi = mc6845_read_register(16);
-    const uint8_t lp_lo = mc6845_read_register(17);
-    printf("Light-pen R16/R17 = 0x%02X 0x%02X\n", lp_hi, lp_lo);
-
-    // Цикл наблюдения за MA/RA
-    uint32_t previous_pins = 0xFFFFFFFF;
+    uint32_t prev_addr = 0xFFFFFFFF;
 
     while (1) {
-        // Прямое чтение всех GPIO
-        const uint32_t pins = gpio_get_all() & 0x1FFFF;
+        const uint32_t addr = gpio_get_all() & 0x1FFFF;
 
-        if (pins != previous_pins) {
-            previous_pins = pins;
-            // MA = биты 0..13
-            const uint16_t address = pins & 0x3FFF; // 14 бит
-
-            // RA = биты 14..16
-            const uint8_t row = pins >> 14;   // 3 бита
-
-            printf("MA=%04X RA=%u\n", address, row);
+        if (addr != prev_addr) {
+            prev_addr = addr;
+            process_video_address(addr & 0x3FFF, addr >> 14);
         }
-        tight_loop_contents();
+
+        int c = getchar_timeout_us(0);
+        if (c == 't') current_video_mode = VIDEO_MODE_TEXT;
+        else if (c == 'g') current_video_mode = VIDEO_MODE_GRAPHICS;
+        else if (c == 'r') init_test_patterns();
     }
 }
