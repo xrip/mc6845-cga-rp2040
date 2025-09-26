@@ -1,6 +1,7 @@
 // MC6845 + RP2040 interface
 // Cleaned up, more readable version
 // Requires Pico SDK
+// https://cpctech.cpcwiki.de/docs/mc6845/mc6845.htm
 
 #include <stdio.h>
 #include "pico/time.h"
