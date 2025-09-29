@@ -73,3 +73,15 @@ static inline void init_clock_pio(PIO pio,uint sm,uint pin, float freq) {
     clock_program_init(pio,sm,offset,pin,freq);
 
 }
+
+// Динамическое изменение частоты PIO на лету
+static inline void change_clock_frequency(PIO pio, uint sm, float freq) {
+    // Останавливаем state machine
+    pio_sm_set_enabled(pio, sm, false);
+
+    // Устанавливаем новый делитель частоты
+    pio_sm_set_clkdiv(pio, sm, clock_get_hz(clk_sys) / (2 * freq));
+
+    // Запускаем state machine снова
+    pio_sm_set_enabled(pio, sm, true);
+}

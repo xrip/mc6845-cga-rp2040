@@ -35,16 +35,18 @@
 #define SYSTEM_CLOCK_HZ       (400 * MHZ)  // 400 MHz RP2040 core
 
 // 80x25 (640x200) = 14.31818Mhz, 40x25 (320x200) = 7.15909Mhz
-#define BASE_CLOCK_FREQ       (14.31818 * MHZ)
-//#define BASE_CLOCK_FREQ       (7.15909 * MHZ)
+#define CLOCK_FREQ_TEXT       (14.31818 * MHZ)  // Для 80x25 текстового режима
+#define CLOCK_FREQ_GRAPHICS   (7.15909 * MHZ)   // Для 40x25 и графического режима
 
 // ---------------- Video modes ----------------
 typedef enum {
-    VIDEO_MODE_TEXT = 0,
-    VIDEO_MODE_GRAPHICS = 1
+    VIDEO_MODE_TEXT_80x25 = 0,
+    VIDEO_MODE_TEXT_40x25 = 1,
+    VIDEO_MODE_GRAPHICS = 2
 } video_mode_t;
 
-static video_mode_t current_video_mode = VIDEO_MODE_TEXT;
+static video_mode_t current_video_mode = VIDEO_MODE_TEXT_80x25;
+static float current_clock_freq = CLOCK_FREQ_TEXT;
 
 // ---------------- Video memory emulation ----------------
 #define TEXT_BUFFER_SIZE (80 * 25)
@@ -217,7 +219,7 @@ static void init_all_gpio(void) {
         gpio_set_dir(i, i < 17 ? GPIO_IN : GPIO_OUT);
     }
 
-    init_clock_pio(pio0, SM_CLOCK, PIN_MC6845_CLK, BASE_CLOCK_FREQ);
+    init_clock_pio(pio0, SM_CLOCK, PIN_MC6845_CLK, current_clock_freq);
 
     // Setup MC6845 registers
     for (int r = 0; r < 16; r++) {
@@ -227,10 +229,11 @@ static void init_all_gpio(void) {
 
 
 static void process_video_address(const uint16_t address, const uint8_t row) {
-    if (current_video_mode == VIDEO_MODE_TEXT) {
-        data_bus_write(cga_font_8x8[text_buffer[address] * 8 + row]);
-    } else if (current_video_mode == VIDEO_MODE_GRAPHICS) {
+    if (current_video_mode == VIDEO_MODE_GRAPHICS) {
         data_bus_write(graphics_buffer[address]);
+    } else {
+        // Текстовые режимы (80x25 и 40x25)
+        data_bus_write(cga_font_8x8[text_buffer[address] * 8 + row]);
     }
 }
 
@@ -245,6 +248,9 @@ void main() {
     busy_wait_ms(1000);
 
     printf("CGA Video Emulator\nCommands: t/g/r\n");
+    printf("t = toggle text mode (80x25 <-> 40x25)\n");
+    printf("g = switch to graphics mode (320x200)\n");
+    printf("r = regenerate test patterns\n");
 
     init_all_gpio();
     init_test_patterns();
@@ -261,8 +267,38 @@ void main() {
         }
 
         int c = getchar_timeout_us(0);
-        if (c == 't') current_video_mode = VIDEO_MODE_TEXT;
-        else if (c == 'g') current_video_mode = VIDEO_MODE_GRAPHICS;
+        if (c == 't') {
+            // Переключение между текстовыми режимами
+            if (current_video_mode == VIDEO_MODE_TEXT_80x25) {
+                // Переход на 40x25
+                current_video_mode = VIDEO_MODE_TEXT_40x25;
+                current_clock_freq = CLOCK_FREQ_GRAPHICS;
+                change_clock_frequency(pio0, SM_CLOCK, current_clock_freq);
+                for (int r = 0; r < 16; r++) {
+                    mc6845_write_register(r, mc6845_cga_40x25[r]);
+                }
+                printf("Text mode 40x25 @ 7.15909 MHz\n");
+            } else {
+                // Переход на 80x25 (из любого другого режима)
+                current_video_mode = VIDEO_MODE_TEXT_80x25;
+                current_clock_freq = CLOCK_FREQ_TEXT;
+                change_clock_frequency(pio0, SM_CLOCK, current_clock_freq);
+                for (int r = 0; r < 16; r++) {
+                    mc6845_write_register(r, mc6845_cga_80x25[r]);
+                }
+                printf("Text mode 80x25 @ 14.31818 MHz\n");
+            }
+        }
+        else if (c == 'g') {
+            // Переключение в графический режим
+            current_video_mode = VIDEO_MODE_GRAPHICS;
+            current_clock_freq = CLOCK_FREQ_GRAPHICS;
+            change_clock_frequency(pio0, SM_CLOCK, current_clock_freq);
+            for (int r = 0; r < 16; r++) {
+                mc6845_write_register(r, mc6845_cga_320x200[r]);
+            }
+            printf("Graphics mode 320x200 @ 7.15909 MHz\n");
+        }
         else if (c == 'r') init_test_patterns();
         mc6845_write_register(15, i++);
         busy_wait_ms(100);
