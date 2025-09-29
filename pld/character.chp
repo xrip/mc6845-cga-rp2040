@@ -3,7 +3,7 @@
                                 GAL16V8
 
                           -------\___/-------
-                      CLK |  1           20 | VCC
+                   DOTCLK |  1           20 | VCC
                           |                 |
                    PIXELS |  2           19 | VIDEOOUT
                           |                 |
@@ -13,7 +13,7 @@
                           |                 |
                    CURSOR |  5           16 | /LOAD
                           |                 |
-                       NC |  6           15 | NC
+                       NC |  6           15 | /CSYNC
                           |                 |
                        NC |  7           14 | Q0
                           |                 |

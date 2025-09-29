@@ -2,7 +2,7 @@
 
  Pin # | Name     | Pin Type
 -----------------------------
-   1   | CLK      | Clock
+   1   | DOTCLK   | Clock
    2   | PIXELS   | Input
    3   | VSYNCIN  | Input
    4   | HSYNCIN  | Input
@@ -16,7 +16,7 @@
   12   | CHARCLK  | Output
   13   | Q1       | Output
   14   | Q0       | Output
-  15   | NC       | NC
+  15   | /CSYNC   | Output
   16   | /LOAD    | Output
   17   | HSYNCOUT | Output
   18   | VSYNCOUT | Output

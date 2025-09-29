@@ -40,10 +40,10 @@ Pin 16 = /LOAD        XOR = 1   AC1 = 0
  30  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  31  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
 
-Pin 15 = NC           XOR = 0   AC1 = 0
- 32  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
- 33  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
- 34  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
+Pin 15 = /CSYNC       XOR = 1   AC1 = 1
+ 32  ---- ---- ---- ---- ---- ---- ---- ----
+ 33  ---- -x-- x--- ---- ---- ---- ---- ----
+ 34  ---- x--- -x-- ---- ---- ---- ---- ----
  35  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  36  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  37  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx

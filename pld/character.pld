@@ -6,20 +6,19 @@ CGACHAR       ; Project Name (max 8 chars)
 ; ========================================================================
 ; This GAL implements the core timing logic for text/character mode display.
 ; It performs several critical functions:
-; 1. Clock division (DOTCLK ÷ 8 = CHARCLK) for MC6845 timing
+; 1. Clock division (DOTCLK / 8 = CHARCLK) for MC6845 timing
 ; 2. Shift register load pulse generation
 ; 3. Hardware cursor implementation via XOR logic
 ; 4. Sync signal polarity inversion
 
-; Pinout Definition Block (Correct pin order for GALETTE)
 ; Line 1: Pins 1 -> 10  (Input pins)
 ; Line 2: Pins 11 -> 20 (Output pins + power)
-CLK   PIXELS  VSYNCIN HSYNCIN CURSOR NC       NC       NC       RESET    GND
-/OE   CHARCLK Q1      Q0      NC     /LOAD    HSYNCOUT VSYNCOUT VIDEOOUT VCC
+DOTCLK  PIXELS   VSYNCIN  HSYNCIN  CURSOR  NC     NC         NC         RESET     GND
+/OE     CHARCLK  Q1       Q0       /CSYNC  /LOAD  /HSYNCOUT  /VSYNCOUT  VIDEOOUT  VCC
 
 ; Input Signal Descriptions:
-; CLK     - System clock (same as DOTCLK, used for registered logic)
-; DOTCLK  - Pixel clock input (~14.3MHz for CGA timing)
+; DOTCLK   - System clock (13.318MHz for CGA timing)
+;
 ; PIXELS  - Serial pixel data from 74HC165 shift register (1 bit per pixel)
 ; RESET   - Active low reset signal to clear all counter bits
 ; HSYNCIN - Horizontal sync from MC6845 (positive polarity)
@@ -28,10 +27,10 @@ CLK   PIXELS  VSYNCIN HSYNCIN CURSOR NC       NC       NC       RESET    GND
 
 ; Output Signal Descriptions:
 ; CHARCLK  - Character clock to MC6845 (DOTCLK ÷ 8, drives character timing)
-; Q0,Q1,Q2 - 3-bit binary counter outputs (internal feedback + Q2 as CHARCLK)
+; Q0,Q1,CHARCLK - 3-bit binary counter outputs (internal feedback + Q2 as CHARCLK)
 ; /LOAD    - Active low load pulse for 74HC165 shift register
-; VSYNCOUT - Inverted vertical sync (negative polarity for VGA compatibility)
-; HSYNCOUT - Inverted horizontal sync (negative polarity for VGA compatibility)
+; /VSYNCOUT - Inverted vertical sync (negative polarity for VGA compatibility)
+; /HSYNCOUT - Inverted horizontal sync (negative polarity for VGA compatibility)
 ; VIDEOOUT - Final pixel output with cursor XOR applied
 
 ; Logic Equations Block
@@ -68,9 +67,8 @@ Q1.R = /RESET * Q1 * /Q0 + /RESET * /Q1 * Q0
 ; Also serves as CHARCLK output - creates DOTCLK ÷ 8 frequency
 CHARCLK.R = /RESET * CHARCLK * /Q1 + /RESET * CHARCLK * /Q0 + /RESET * /CHARCLK * Q1 * Q0
 
-; CHARACTER CLOCK OUTPUT: MSB of counter provides ÷8 frequency division
-; DOTCLK = 14.318MHz → CHARCLK = 1.79MHz (exactly what MC6845 needs)
-; CHARCLK = Q2
+; Composite SYNC. HSYNC xor VSYNC
+/CSYNC = HSYNCIN * /VSYNCIN + /HSYNCIN * VSYNCIN
 
 DESCRIPTION
 This GAL implements all the glue logic for a minimal MC6845-based
@@ -79,18 +77,17 @@ static video display card, with hardware cursor support.
 Pinout:
 - Pin 02 (DOTCLK):   Short to Clock
 - Pin 11 (/OE):      MUST BE TIED TO GROUND for combinational outputs
-- Pin 12 (CHARCLK):  Character Clock for MC6845 (counter bit 2). Cause registered outputs no working!!?
+- Pin 12 (CHARCLK):  Character Clock for MC6845 (counter bit 2).
 - Pin 13 (Q0):       Internal counter bit 0 (feedback only)
 - Pin 14 (Q1):       Internal counter bit 1 (feedback only) 
 - Pin 15 (/LOAD):    Output, Active-low load pulse for shift register
-- Pin 16 (Q2):       Output, Character Clock for MC6845 (counter bit 2)
 - Pin 17 (VSYNCOUT): Output, Inverted VSYNC
 - Pin 18 (HSYNCOUT): Output, Inverted HSYNC
 - Pin 19 (VIDEOOUT): Output, Final video signal to DAC
 
 Counter Operation:
 - 3-bit counter Q2,Q1,Q0 counts: 0->1->2->3->4->5->6->7->0...
-- CHARCLK is DOTCLK / 4
+- CHARCLK is DOTCLK / 8
 - /LOAD pulse generated when counter = 000 and CLK is low
 - RESET clears all counter bits
 
