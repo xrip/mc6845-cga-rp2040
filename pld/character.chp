@@ -5,21 +5,21 @@
                           -------\___/-------
                       CLK |  1           20 | VCC
                           |                 |
-                   DOTCLK |  2           19 | VIDEOOUT
+                   PIXELS |  2           19 | VIDEOOUT
                           |                 |
-                   PIXELS |  3           18 | HSYNCOUT
+                  VSYNCIN |  3           18 | VSYNCOUT
                           |                 |
-                    RESET |  4           17 | VSYNCOUT
+                  HSYNCIN |  4           17 | HSYNCOUT
                           |                 |
-                  HSYNCIN |  5           16 | Q2
+                   CURSOR |  5           16 | /LOAD
                           |                 |
-                  VSYNCIN |  6           15 | /LOAD
+                       NC |  6           15 | NC
                           |                 |
-                   CURSOR |  7           14 | Q1
+                       NC |  7           14 | Q0
                           |                 |
-                       NC |  8           13 | Q0
+                       NC |  8           13 | Q1
                           |                 |
-                       NC |  9           12 | CHARCLK
+                    RESET |  9           12 | CHARCLK
                           |                 |
                       GND | 10           11 | /OE
                           -------------------

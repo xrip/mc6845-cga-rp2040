@@ -20,20 +20,20 @@
 #define PIN_MC6845_RW     29  // Read/Write (0=write, 1=read)
 #define PIN_MC6845_CLK    25  // Clock output pin
 
-#define PIN_DATA_BASE     17  // D0 = GPIO17 .. D7 = GPIO24 (MC6845 data bus)
-#define DATA_WIDTH        8
-
 #define PIN_MA_BASE       0   // MA0..MA13 → GPIO0..13 (MC6845 address inputs - read only)
 #define MA_WIDTH          14
 
 #define PIN_RA_BASE       14  // RA0..RA2 → GPIO14..16 (MC6845 row address inputs - read only)
 #define RA_WIDTH          3
 
+#define PIN_DATA_BASE     17  // D0 = GPIO17 .. D7 = GPIO24 (MC6845 data bus)
+#define DATA_WIDTH        8
+
 // ---------------- System configuration ----------------
 #define SYSTEM_CLOCK_HZ       (400 * MHZ)  // 400 MHz RP2040 core
-//#define MC6845_CLOCK_FREQ     (1789772.2f)      // ~NTSC master clock / 10
-#define BASE_CLOCK_FREQ (14.31818 * MHZ)
-#define MC6845_CLOCK_FREQ     ((BASE_CLOCK_FREQ) / 8)
+
+#define BASE_CLOCK_FREQ       (14.31818 * MHZ)
+#define MC6845_CLOCK_FREQ     ((BASE_CLOCK_FREQ) / 8) // Not used anymore, we /8 with GAL16
 
 // ---------------- Video modes ----------------
 typedef enum {
@@ -68,16 +68,16 @@ static void init_test_patterns(void) {
 
 // ---------------- Default register values ----------------
 static const uint8_t mc6845_defaults[16] = {
-    0x64, // R0: Horizontal Total
-    0x50, // R1: Horizontal Displayed
-    0x54, // R2: HSync Position
-    0x07, // R3: HSync Width
-    0x1B, // R4: Vertical Total
-    0x02, // R5: VTotal Adjust
-    0x18, // R6: Vertical Displayed
-    0x19, // R7: VSync Position
-    0x00, // R8: Interlace & Skew
-    0x0A, // R9: Max Scanline
+    113, // R0: Horizontal Total
+    80, // R1: Horizontal Displayed
+    90, // R2: HSync Position
+    10, // R3: HSync Width
+    31, // R4: Vertical Total
+    6, // R5: VTotal Adjust
+    25, // R6: Vertical Displayed
+    28, // R7: VSync Position
+    2, // R8: Interlace & Skew
+    7, // R9: Max Scanline
     0x00, // R10: Cursor Start
     0x0B, // R11: Cursor End
     0x00, // R12: Start Addr (H)
@@ -85,6 +85,7 @@ static const uint8_t mc6845_defaults[16] = {
     0x00, // R14: Cursor Addr (H)
     0x80 // R15: Cursor Addr (L)
 };
+
 
 // ==========================================================
 // Low-level helpers
@@ -154,7 +155,7 @@ static void init_all_gpio(void) {
         gpio_set_dir(i, i < 17 ? GPIO_IN : GPIO_OUT);
     }
 
-    init_clock_pio(pio0, SM_CLOCK, PIN_MC6845_CLK, MC6845_CLOCK_FREQ);
+    init_clock_pio(pio0, SM_CLOCK, PIN_MC6845_CLK, BASE_CLOCK_FREQ);
 
     // Setup MC6845 registers
     for (int r = 0; r < 16; r++) {

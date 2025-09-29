@@ -3,23 +3,23 @@
  Pin # | Name     | Pin Type
 -----------------------------
    1   | CLK      | Clock
-   2   | DOTCLK   | Input
-   3   | PIXELS   | Input
-   4   | RESET    | Input
-   5   | HSYNCIN  | Input
-   6   | VSYNCIN  | Input
-   7   | CURSOR   | Input
+   2   | PIXELS   | Input
+   3   | VSYNCIN  | Input
+   4   | HSYNCIN  | Input
+   5   | CURSOR   | Input
+   6   | NC       | Input
+   7   | NC       | Input
    8   | NC       | Input
-   9   | NC       | Input
+   9   | RESET    | Input
   10   | GND      | GND
   11   | /OE      | /OE
   12   | CHARCLK  | Output
-  13   | Q0       | Output
-  14   | Q1       | Output
-  15   | /LOAD    | Output
-  16   | Q2       | Output
-  17   | VSYNCOUT | Output
-  18   | HSYNCOUT | Output
+  13   | Q1       | Output
+  14   | Q0       | Output
+  15   | NC       | NC
+  16   | /LOAD    | Output
+  17   | HSYNCOUT | Output
+  18   | VSYNCOUT | Output
   19   | VIDEOOUT | Output
   20   | VCC      | VCC
 
