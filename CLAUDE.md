@@ -19,7 +19,7 @@ The project combines:
 - **MC6845 CRTC**: Master video timing controller (controlled via RP2040)
 - **RP2040 (Raspberry Pi Pico)**: Multi-function controller:
   - MC6845 register programming and control
-  - PIO-based precise clock generation (~1.79MHz)
+  - PIO-based precise clock generation (14.31818MHz for 80x25, 7.15909MHz for 40x25/graphics)
   - Video memory emulation (Text + Attribute data)
   - Built-in character ROM (8x8 font from `rom.h`)
   - Real-time address monitoring (MA0-MA13, RA0-RA2)
@@ -72,6 +72,13 @@ cd pld
 - Real-time monitoring of MA/RA address signals
 - GPIO configuration for bidirectional data/address buses
 
+### Documentation (`docs/`)
+- `MC6845.pdf`: Complete MC6845 CRTC datasheet and programming guide
+  - Register descriptions and timing specifications
+  - Cursor signal behavior and relationship to DE
+  - Programming examples for video timing
+  - Pin descriptions and electrical characteristics
+
 ### Programmable Logic (`pld/`)
 - `character.pld`: 3-bit counter, clock division, cursor XOR, sync inversion (ATF16V8)
 - `attribute.pld`: 4-bit color multiplexing with display enable gating + composite (ATF16V8)
@@ -79,9 +86,10 @@ cd pld
 - `galette.exe`: GAL compiler for generating programming files
 
 ### Clock Generation (`clock_pio.h`)
-- PIO-based precise clock generation at ~1.79MHz (NTSC-derived timing)
-- Configurable frequency for MC6845 character clock
-- State machine for reliable clock output
+- PIO-based precise clock generation at 14.31818MHz (NTSC-derived timing)
+- Character clock is derived from dot clock: 80x25 uses 14.31818MHz, 40x25/graphics uses 7.15909MHz
+- Configurable frequency via `BASE_CLOCK_FREQ` define in `main.c`
+- State machine for reliable clock output with 50% duty cycle
 
 ### Font Data (`rom.h`)
 - 2KB character ROM data (8x8 pixel font)
@@ -91,11 +99,18 @@ cd pld
 ## Development Workflow
 
 1. **Firmware changes**: Edit `main.c`, rebuild with CMake, flash .uf2 to Pico
+   - Hold BOOTSEL button while connecting USB to enter bootloader mode
+   - Copy `bin/CGA.uf2` to the mounted RPI-RP2 drive
 2. **Video memory changes**: Modify address monitoring and data generation logic in `main.c`
-3. **Logic changes**: Edit `.pld` files, run `build.bat`, program new .jed files to GAL chips
-4. **Timing adjustments**: Modify clock frequencies in `clock_pio.h` or MC6845 register defaults
+   - Text buffer: `text_buffer[]` (80×25 = 2000 bytes)
+   - Graphics buffer: `graphics_buffer[]` (8000 bytes for 320×200÷4)
+   - Modify `process_video_address()` function for custom video data generation
+3. **Logic changes**: Edit `.pld` files in `pld/` directory, run `build.bat`, program new .jed files to GAL chips
+4. **Timing adjustments**:
+   - Modify `BASE_CLOCK_FREQ` in `main.c` (14.31818MHz or 7.15909MHz)
+   - Adjust MC6845 register arrays (`mc6845_cga_80x25[]`, etc.)
 5. **Font changes**: Update `rom.h` with new character pattern data (requires firmware rebuild)
-6. **Mode switching**: Add logic in `main.c` to switch between text/graphics modes dynamically
+6. **Mode switching**: Modify `current_video_mode` handling in main loop or add new runtime commands
 
 ## Code Organization (v2.1)
 
@@ -107,9 +122,11 @@ The codebase has been optimized for simplicity and performance:
 - **Compact functions**: Combined related operations to reduce call overhead
 
 ## Hardware Dependencies
-- Requires PICO_SDK_PATH environment variable
-- GAL programming requires physical chip programmer
+- Requires PICO_SDK_PATH environment variable pointing to Raspberry Pi Pico SDK
+- GAL programming requires physical chip programmer (e.g., TL866II Plus)
 - 16MB flash Pico variant assumed (`PICO_FLASH_SIZE_BYTES=16777216`)
+- RP2040 overclocked to 400MHz for video timing performance
+- USB serial interface for runtime control and debugging
 
 ## Pin Assignments
 - **MC6845 Control**: GPIO 25-29 (CLK, CS, RS, E, RW)
@@ -133,13 +150,25 @@ The design efficiently uses the MC6845 data bus (GPIO 17-24) for video output:
 ## Current Implementation Status
 The RP2040 firmware in `main.c` currently implements:
 - ✅ MC6845 initialization and register programming
-- ✅ PIO-based clock generation 
+- ✅ PIO-based clock generation
 - ✅ Address monitoring and real-time display
 - ✅ Built-in character ROM (`rom.h`)
 - ✅ Active video data output (text and graphics modes)
 - ✅ Efficient GPIO usage for video output
 - ✅ Dynamic mode switching between text/graphics
 - ✅ Test pattern generation
+
+### Runtime Commands (via USB serial)
+The firmware accepts these commands over USB serial:
+- `t` - Switch to text mode (80x25 characters)
+- `g` - Switch to graphics mode (320x200 pixels, 4 colors)
+- `r` - Regenerate test patterns
+
+### MC6845 Register Configurations
+Three pre-configured modes are available in `main.c`:
+- `mc6845_cga_80x25[]` - 80 columns × 25 rows text mode
+- `mc6845_cga_40x25[]` - 40 columns × 25 rows text mode
+- `mc6845_cga_320x200[]` - 320×200 graphics mode (100 character rows × 2 scanlines each)
 
 ## GAL Programming Guide
 

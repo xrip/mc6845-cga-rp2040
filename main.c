@@ -2,6 +2,8 @@
 // Cleaned up, more readable version
 // Requires Pico SDK
 // https://cpctech.cpcwiki.de/docs/mc6845/mc6845.htm
+// https://minuszerodegrees.net/mda_cga_ega/mda_cga_ega.htm
+// https://www.minuszerodegrees.net/oa/OA%20-%20IBM%20Color%20Graphics%20Monitor%20Adapter%20%28CGA%29.pdf
 
 #include <stdio.h>
 #include "pico/time.h"
@@ -32,8 +34,9 @@
 // ---------------- System configuration ----------------
 #define SYSTEM_CLOCK_HZ       (400 * MHZ)  // 400 MHz RP2040 core
 
+// 80x25 (640x200) = 14.31818Mhz, 40x25 (320x200) = 7.15909Mhz
 #define BASE_CLOCK_FREQ       (14.31818 * MHZ)
-#define MC6845_CLOCK_FREQ     ((BASE_CLOCK_FREQ) / 8) // Not used anymore, we /8 with GAL16
+//#define BASE_CLOCK_FREQ       (7.15909 * MHZ)
 
 // ---------------- Video modes ----------------
 typedef enum {
@@ -66,12 +69,71 @@ static void init_test_patterns(void) {
     }
 }
 
+// MC6845 register values for CGA 40x25 Text Mode
+static const uint8_t mc6845_cga_40x25[16] = {
+    0x38, // R0: Horizontal Total (56)
+    0x28, // R1: Horizontal Displayed (40)
+    0x2D, // R2: HSync Position (45)
+    0x0A, // R3: HSync Width (10)
+    0x1F, // R4: Vertical Total (31)
+    0x06, // R5: VTotal Adjust (6)
+    0x19, // R6: Vertical Displayed (25)
+    0x1C, // R7: VSync Position (28)
+    0x02, // R8: Interlace Mode (Non-interlaced)
+    0x07, // R9: Max Scanline Address (7, for 8 lines per char)
+    0x00, // R10: Cursor Start Line (6)
+    0x07,  // R11: Cursor End Line (7)
+    0,0,0,0
+};
+
+// MC6845 register values for CGA 80x25 Text Mode
+static const uint8_t mc6845_cga_80x25[16] = {
+    0x71, // R0: Horizontal Total (113)
+    0x50, // R1: Horizontal Displayed (80)
+    0x5A, // R2: HSync Position (90)
+    0x0A, // R3: HSync Width (10)
+    0x1F, // R4: Vertical Total (31)
+    0x06, // R5: VTotal Adjust (6)
+    0x19, // R6: Vertical Displayed (25)
+    0x1C, // R7: VSync Position (28)
+    0x02, // R8: Interlace Mode (Non-interlaced)
+    0x07, // R9: Max Scanline Address (7, for 8 lines per char)
+    0x06, // R10: Cursor Start Line (6)
+    0x07,  // R11: Cursor End Line (7)
+    0x00, // R12: Start Addr (H)
+0x00, // R13: Start Addr (L)
+0x00, // R14: Cursor Addr (H)
+0x00 // R15: Cursor Addr (L)
+};
+
+// MC6845 register values for CGA 320x200 4-Color Graphics Mode
+// MC6845 register values for CGA 640x200 2-Color Graphics Mode
+// Note: Timing parameters are identical to 320x200 mode.
+// The higher resolution is handled by the CGA's internal logic,
+// selected via the Mode Control Register.
+static const uint8_t mc6845_cga_320x200[16] = {
+    0x38, // R0: Horizontal Total (56)
+    0x28, // R1: Horizontal Displayed (40)
+    0x2D, // R2: HSync Position (45)
+    0x0A, // R3: HSync Width (10)
+    0x7F, // R4: Vertical Total (127)
+    0x06, // R5: VTotal Adjust (6)
+    0x64, // R6: Vertical Displayed (100)
+    0x70, // R7: VSync Position (112)
+    0x02, // R8: Interlace Mode (Non-interlaced)
+    0x01, // R9: Max Scanline Address (1, for 2 lines per "char row")
+    0x00, // R10: Cursor Start (Cursor typically disabled)
+    0x00,  // R11: Cursor End (Cursor typically disabled)
+    0,0,0,0
+};
+
 // ---------------- Default register values ----------------
 static const uint8_t mc6845_defaults[16] = {
     113, // R0: Horizontal Total
     80, // R1: Horizontal Displayed
     90, // R2: HSync Position
     10, // R3: HSync Width
+
     31, // R4: Vertical Total
     6, // R5: VTotal Adjust
     25, // R6: Vertical Displayed
@@ -81,9 +143,9 @@ static const uint8_t mc6845_defaults[16] = {
     0x00, // R10: Cursor Start
     0x0B, // R11: Cursor End
     0x00, // R12: Start Addr (H)
-    0x80, // R13: Start Addr (L)
+    0x00, // R13: Start Addr (L)
     0x00, // R14: Cursor Addr (H)
-    0x80 // R15: Cursor Addr (L)
+    0x00 // R15: Cursor Addr (L)
 };
 
 
@@ -159,7 +221,7 @@ static void init_all_gpio(void) {
 
     // Setup MC6845 registers
     for (int r = 0; r < 16; r++) {
-        mc6845_write_register(r, mc6845_defaults[r]);
+        mc6845_write_register(r, mc6845_cga_80x25[r]);
     }
 }
 
@@ -189,6 +251,7 @@ void main() {
 
     uint32_t prev_addr = 0xFFFFFFFF;
 
+    uint8_t i = 0;
     while (1) {
         const uint32_t addr = gpio_get_all() & 0x1FFFF;
 
@@ -201,5 +264,7 @@ void main() {
         if (c == 't') current_video_mode = VIDEO_MODE_TEXT;
         else if (c == 'g') current_video_mode = VIDEO_MODE_GRAPHICS;
         else if (c == 'r') init_test_patterns();
+        mc6845_write_register(15, i++);
+        busy_wait_ms(100);
     }
 }
