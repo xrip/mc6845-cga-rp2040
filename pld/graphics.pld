@@ -2,130 +2,130 @@ GAL20V8       ; Chip Type: ATF20V8B / GAL20V8
 CGAGRAPH      ; Project Name
 
 ; ========================================================================
-; CGA 320x200 4-COLOR GRAPHICS PROCESSOR V2.2 (with Composite Luma Output)
+; ПРОЦЕССОР CGA 320x200 4-ЦВЕТНОЙ ГРАФИКИ V2.2 (с композитным выходом яркости)
 ; ========================================================================
-; This GAL20V8 implements a complete video processor for CGA 320x200 graphics
-; mode. It handles pixel unpacking, color generation, and timing for 4-color
-; graphics display. The design uses De Morgan's optimization to fit within
-; the product term limits of the GAL20V8 architecture.
-; This version adds a dedicated binary COMPOSITE output pin. This signal
-; represents the luminance (brightness) and can be used to directly drive
-; a monochrome composite monitor or be mixed with sync signals, reducing
-; the need for an external RGBI resistor mixing network.
+; Данная GAL20V8 реализует полноценный видеопроцессор для графического
+; режима CGA 320x200. Обрабатывает распаковку пикселей, генерацию цветов и тайминг для 4-цветного
+; графического дисплея. Дизайн использует оптимизацию Де Моргана для вмещения в пределы
+; произведений термов архитектуры GAL20V8.
+; Эта версия добавляет выделенный двоичный выход LUMA. Этот сигнал
+; представляет яркость (светимость) и может использоваться для прямого управления
+; монохромным композитным монитором или смешивания с синхросигналами, снижая
+; потребность в внешней резистивной сети смешивания RGBI.
 ;
-; GRAPHICS MODE OPERATION:
-; - Each byte from video memory contains 4 pixels (2 bits per pixel)
-; - Pixels are packed as: [D7,D6]=Pixel3, [D5,D4]=Pixel2, [D3,D2]=Pixel1, [D1,D0]=Pixel0
-; - 2-bit pixel counter cycles through pixels 0→1→2→3 on each DOTCLK
-; - Each 2-bit pixel value selects one of 4 possible colors
-; - PALETTE and INTENSITY inputs provide additional color control
+; РАБОТА ГРАФИЧЕСКОГО РЕЖИМА:
+; - Каждый байт из видеопамяти содержит 4 пикселя (2 бита на пиксель)
+; - Пиксели упакованы как: [D7,D6]=Пиксель3, [D5,D4]=Пиксель2, [D3,D2]=Пиксель1, [D1,D0]=Пиксель0
+; - 2-битный счетчик пикселей переключает пиксели 0→1→2→3 на каждом DOTCLK
+; - Каждое 2-битное значение пикселя выбирает один из 4 возможных цветов
+; - Входы PALETTE и INTENSITY обеспечивают дополнительное управление цветом
 
-; --- Pin Assignments (24-pin DIP Package) ---
-; Line 1: Pins 1 -> 12 (Input pins)
+; --- Назначение пинов (24-пиновый DIP корпус) ---
+; Строка 1: Пины 1 -> 12 (Входные пины)
 DOTCLK D7 D6 D5 D4 D3 D2 D1 D0 PALETTE INTENSITY GND
-; Line 2: Pins 13 -> 24 (Output pins + power)
-/OE    DE COMPOSITE  NC Q1 Q0 B G R I NC        VCC
+; Строка 2: Пины 13 -> 24 (Выходные пины + питание)
+/OE    DE LUMA  NC Q1 Q0 B G R I NC        VCC
 
-; Input Signal Descriptions:
-; DOTCLK    - Pixel clock (~14.318MHz for CGA timing)
-; D7-D0     - 8-bit data from video memory (4 pixels, 2 bits each)
-; PALETTE   - Palette select (0=palette0, 1=palette1) 
-; INTENSITY - Intensity enable (adds intensity bit to all colors)
-; DE        - Display Enable (active during visible area)
+; Описание входных сигналов:
+; DOTCLK    - Пиксельная частота (~14.318МГц для CGA тайминга)
+; D7-D0     - 8-битные данные из видеопамяти (4 пикселя, по 2 бита каждый)
+; PALETTE   - Выбор палитры (0=палитра0, 1=палитра1) 
+; INTENSITY - Разрешение интенсивности (добавляет бит интенсивности ко всем цветам)
+; DE        - Разрешение отображения (активно во время видимой области)
 
-; Output Signal Descriptions:
-; Q1,Q0     - 2-bit pixel counter (selects which pixel to display)
-; R,G,B,I   - 4-bit RGBI color output for current pixel
+; Описание выходных сигналов:
+; Q1,Q0     - 2-битный счетчик пикселей (выбирает какой пиксель отображать)
+; R,G,B,I   - 4-битный RGBI цветовой выход для текущего пикселя
 
-; PIXEL PACKING FORMAT (8 bits = 4 pixels):
-; Bit 7,6: Pixel 3 (rightmost pixel in character)
-; Bit 5,4: Pixel 2  
-; Bit 3,2: Pixel 1
-; Bit 1,0: Pixel 0 (leftmost pixel in character)
+; ФОРМАТ УПАКОВКИ ПИКСЕЛЕЙ (8 бит = 4 пикселя):
+; Биты 7,6: Пиксель 3 (крайний правый пиксель в символе)
+; Биты 5,4: Пиксель 2  
+; Биты 3,2: Пиксель 1
+; Биты 1,0: Пиксель 0 (крайний левый пиксель в символе)
 
-; CGA 4-COLOR PALETTE MAPPING:
-; Pixel Value | Palette 0        | Palette 1
-; 00 (0)      | Background       | Background  
-; 01 (1)      | Green            | Cyan
-; 10 (2)      | Red              | Magenta  
-; 11 (3)      | Brown/Yellow     | Light Gray/White
+; ОТОБРАЖЕНИЕ 4-ЦВЕТНОЙ ПАЛИТРЫ CGA:
+; Значение пикселя | Палитра 0        | Палитра 1
+; 00 (0)              | Фон               | Фон  
+; 01 (1)              | Зеленый          | Голубой
+; 10 (2)              | Красный          | Пурпурный  
+; 11 (3)              | Коричневый/Желтый | Светло-серый/Белый
 
-; --- Logic Equations ---
+; --- Логические уравнения ---
 
-; --- 1. PIXEL COUNTER: 2-bit synchronous counter for pixel selection ---
-; Counts 00→01→10→11→00... to select pixel within byte
-; Q1,Q0 = 00: Select pixel 0 (bits D1,D0)
-; Q1,Q0 = 01: Select pixel 1 (bits D3,D2)  
-; Q1,Q0 = 10: Select pixel 2 (bits D5,D4)
-; Q1,Q0 = 11: Select pixel 3 (bits D7,D6)
+; --- 1. СЧЕТЧИК ПИКСЕЛЕЙ: 2-битный синхронный счетчик для выбора пикселя ---
+; Считает 00→01→10→11→00... для выбора пикселя в байте
+; Q1,Q0 = 00: Выбрать пиксель 0 (биты D1,D0)
+; Q1,Q0 = 01: Выбрать пиксель 1 (биты D3,D2)  
+; Q1,Q0 = 10: Выбрать пиксель 2 (биты D5,D4)
+; Q1,Q0 = 11: Выбрать пиксель 3 (биты D7,D6)
 
-Q0.R = /Q0          ; Q0 toggles every clock (LSB of counter)
-Q1.R = Q1 * /Q0 + /Q1 * Q0    ; Q1 toggles when Q0 goes 1→0
+Q0.R = /Q0          ; Q0 переключается каждый такт (младший бит счетчика)
+Q1.R = Q1 * /Q0 + /Q1 * Q0    ; Q1 переключается когда Q0 переходит 1→0
 
-; --- 2. COLOR GENERATION: Extract 2-bit pixel and convert to RGBI ---
+; --- 2. ГЕНЕРАЦИЯ ЦВЕТА: Извлечение 2-битного пикселя и преобразование в RGBI ---
 
-; GREEN CHANNEL: Active when pixel LSB = 1
-; For each counter state, check the LSB of the corresponding pixel
-G = DE * /Q1 * /Q0 * D0    ; Counter=00: Check pixel 0 LSB (D0)
-  + DE * /Q1 *  Q0 * D2    ; Counter=01: Check pixel 1 LSB (D2)
-  + DE *  Q1 * /Q0 * D4    ; Counter=10: Check pixel 2 LSB (D4)
-  + DE *  Q1 *  Q0 * D6    ; Counter=11: Check pixel 3 LSB (D6)
+; ЗЕЛЕНЫЙ КАНАЛ: Активен когда младший бит пикселя = 1
+; Для каждого состояния счетчика, проверяем младший бит соответствующего пикселя
+G = DE * /Q1 * /Q0 * D0    ; Счетчик=00: Проверить мл.бит пикселя 0 (D0)
+  + DE * /Q1 *  Q0 * D2    ; Счетчик=01: Проверить мл.бит пикселя 1 (D2)
+  + DE *  Q1 * /Q0 * D4    ; Счетчик=10: Проверить мл.бит пикселя 2 (D4)
+  + DE *  Q1 *  Q0 * D6    ; Счетчик=11: Проверить мл.бит пикселя 3 (D6)
 
-; RED CHANNEL: Active when pixel MSB = 1  
-; For each counter state, check the MSB of the corresponding pixel
-R = DE * /Q1 * /Q0 * D1    ; Counter=00: Check pixel 0 MSB (D1)
-  + DE * /Q1 *  Q0 * D3    ; Counter=01: Check pixel 1 MSB (D3)
-  + DE *  Q1 * /Q0 * D5    ; Counter=10: Check pixel 2 MSB (D5)
-  + DE *  Q1 *  Q0 * D7    ; Counter=11: Check pixel 3 MSB (D7)
+; КРАСНЫЙ КАНАЛ: Активен когда старший бит пикселя = 1  
+; Для каждого состояния счетчика, проверяем старший бит соответствующего пикселя
+R = DE * /Q1 * /Q0 * D1    ; Счетчик=00: Проверить ст.бит пикселя 0 (D1)
+  + DE * /Q1 *  Q0 * D3    ; Счетчик=01: Проверить ст.бит пикселя 1 (D3)
+  + DE *  Q1 * /Q0 * D5    ; Счетчик=10: Проверить ст.бит пикселя 2 (D5)
+  + DE *  Q1 *  Q0 * D7    ; Счетчик=11: Проверить ст.бит пикселя 3 (D7)
 
-; --- 3. DE MORGAN'S OPTIMIZATION FOR BLUE AND INTENSITY ---
-; Computing /B and /I requires fewer product terms than computing B and I directly.
-; The GAL automatically inverts the output, giving us the correct polarity.
+; --- 3. ОПТИМИЗАЦИЯ ДЕ МОРГАНА ДЛЯ СИНЕГО И ИНТЕНСИВНОСТИ ---
+; Вычисление /B и /I требует меньше произведений термов, чем прямое вычисление B и I.
+; GAL автоматически инвертирует выход, давая нам правильную полярность.
 
-; BLUE CHANNEL: Active for palette colors and non-background pixels
-; Blue is OFF (=0) when: DE=0 OR PALETTE=0 OR current pixel=background(00)
-/B = /DE                              ; Always off during blanking
-   + /PALETTE                         ; Off when palette 0 selected
-   + /Q1 * /Q0 * /D1 * /D0           ; Counter=00: OFF if pixel 0 = 00 (background)
-   + /Q1 *  Q0 * /D3 * /D2           ; Counter=01: OFF if pixel 1 = 00 (background)
-   +  Q1 * /Q0 * /D5 * /D4           ; Counter=10: OFF if pixel 2 = 00 (background)
-   +  Q1 *  Q0 * /D7 * /D6           ; Counter=11: OFF if pixel 3 = 00 (background)
+; СИНИЙ КАНАЛ: Активен для цветов палитры и не-фоновых пикселей
+; Синий ОТКЛЮЧЕН (=0) когда: DE=0 ИЛИ PALETTE=0 ИЛИ текущий пиксель=фон(00)
+/B = /DE                              ; Всегда отключен во время гашения
+   + /PALETTE                         ; Отключен когда выбрана палитра 0
+   + /Q1 * /Q0 * /D1 * /D0           ; Счетчик=00: ОТКЛ если пиксель 0 = 00 (фон)
+   + /Q1 *  Q0 * /D3 * /D2           ; Счетчик=01: ОТКЛ если пиксель 1 = 00 (фон)
+   +  Q1 * /Q0 * /D5 * /D4           ; Счетчик=10: ОТКЛ если пиксель 2 = 00 (фон)
+   +  Q1 *  Q0 * /D7 * /D6           ; Счетчик=11: ОТКЛ если пиксель 3 = 00 (фон)
 
-; INTENSITY CHANNEL: Active when intensity enabled and pixel non-background
-; Intensity is OFF (=0) when: DE=0 OR INTENSITY=0 OR current pixel=background(00)
-/I = /DE                              ; Always off during blanking
-   + /INTENSITY                       ; Off when intensity disabled
-   + /Q1 * /Q0 * /D1 * /D0           ; Counter=00: OFF if pixel 0 = 00 (background)
-   + /Q1 *  Q0 * /D3 * /D2           ; Counter=01: OFF if pixel 1 = 00 (background)
-   +  Q1 * /Q0 * /D5 * /D4           ; Counter=10: OFF if pixel 2 = 00 (background)
-   +  Q1 *  Q0 * /D7 * /D6           ; Counter=11: OFF if pixel 3 = 00 (background)
+; КАНАЛ ИНТЕНСИВНОСТИ: Активен когда разрешена интенсивность и пиксель не-фоновый
+; Интенсивность ОТКЛЮЧЕНА (=0) когда: DE=0 ИЛИ INTENSITY=0 ИЛИ текущий пиксель=фон(00)
+/I = /DE                              ; Всегда отключена во время гашения
+   + /INTENSITY                       ; Отключена когда интенсивность запрещена
+   + /Q1 * /Q0 * /D1 * /D0           ; Счетчик=00: ОТКЛ если пиксель 0 = 00 (фон)
+   + /Q1 *  Q0 * /D3 * /D2           ; Счетчик=01: ОТКЛ если пиксель 1 = 00 (фон)
+   +  Q1 * /Q0 * /D5 * /D4           ; Счетчик=10: ОТКЛ если пиксель 2 = 00 (фон)
+   +  Q1 *  Q0 * /D7 * /D6           ; Счетчик=11: ОТКЛ если пиксель 3 = 00 (фон)
 
 
-; --- 3. NEW COMPOSITE LUMA CHANNEL ---
-; This signal is HIGH for any non-background color.
-; We use inverse logic to fit within product term limits.
-; COMPOSITE is LOW when: DE=0 OR current pixel=background(00)
-/COMPOSITE = /DE
-           + /Q1 * /Q0 * /D1 * /D0  ; Pixel 0 is background
-           + /Q1 *  Q0 * /D3 * /D2  ; Pixel 1 is background
-           +  Q1 * /Q0 * /D5 * /D4  ; Pixel 2 is background
-           +  Q1 *  Q0 * /D7 * /D6  ; Pixel 3 is background
+; --- 3. НОВЫЙ КОМПОЗИТНЫЙ КАНАЛ ЯРКОСТИ ---
+; Этот сигнал HIGH для любого не-фонового цвета.
+; Мы используем инверсную логику для вмещения в пределы произведений термов.
+; LUMA является LOW когда: DE=0 ИЛИ текущий пиксель=фон(00)
+/LUMA = /DE
+           + /Q1 * /Q0 * /D1 * /D0  ; Пиксель 0 - фон
+           + /Q1 *  Q0 * /D3 * /D2  ; Пиксель 1 - фон
+           +  Q1 * /Q0 * /D5 * /D4  ; Пиксель 2 - фон
+           +  Q1 *  Q0 * /D7 * /D6  ; Пиксель 3 - фон
 
 DESCRIPTION
-A single-chip video processor for the CGA 320x200 4-color graphics mode.
-This version (2.1) is optimized to fit within the product term limits of a
-GAL20V8 by implementing the logic for the B and I channels in an inverted
-(active-low) form, a technique known as De Morgan's optimization.
+Одночиповый видеопроцессор для 4-цветного графического режима CGA 320x200.
+Эта версия (2.1) оптимизирована для вмещения в пределы произведений термов
+GAL20V8 путем реализации логики для каналов B и I в инвертированной
+(активно-низкой) форме, техника, известная как оптимизация Де Моргана.
 
-Pinout Notes:
-- Pin 01 (DOTCLK): MUST be connected to the pixel clock source.
-- Pin 13 (/OE): MUST be tied to GROUND for the outputs to be active.
-- There is no reset logic in this version.
+Примечания по распиновке:
+- Пин 01 (DOTCLK): ДОЛЖЕН быть подключен к источнику пиксельной частоты.
+- Пин 13 (/OE): ДОЛЖЕН быть подключен к ЗЕМЛЕ для активации выходов.
+- В этой версии нет логики сброса.
 
-Brief Description:
-This GAL20V8 implements CGA 320x200 4-color graphics mode processing. It contains
-a 2-bit pixel counter that cycles through 4 pixels per byte, extracts 2-bit color
-values from 8-bit data input, and generates RGBI outputs. Uses De Morgan's optimization
-for Blue/Intensity channels to fit within GAL product term limits. Supports palette
-and intensity enable controls for flexible color mapping. Designed for direct
-interfacing with video memory and CGA-compatible displays.
+Краткое описание:
+Эта GAL20V8 реализует обработку 4-цветного графического режима CGA 320x200. Содержит
+2-битный счетчик пикселей, который переключает 4 пикселя на байт, извлекает 2-битные цветовые
+значения из 8-битного входа данных и генерирует RGBI выходы. Использует оптимизацию Де Моргана
+для каналов синего/интенсивности для вмещения в пределы произведений термов GAL. Поддерживает
+управление палитрой и разрешением интенсивности для гибкого отображения цветов. Разработана для прямого
+сопряжения с видеопамятью и CGA-совместимыми дисплеями.

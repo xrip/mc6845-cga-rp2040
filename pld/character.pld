@@ -2,98 +2,99 @@ GAL16V8       ; Chip Type: ATF16V8B / GAL16V8
 CGACHAR       ; Project Name (max 8 chars)
 
 ; ========================================================================
-; CHARACTER MODE TIMING AND CURSOR CONTROLLER
+; КОНТРОЛЛЕР ТАЙМИНГА И КУРСОРА ДЛЯ СИМВОЛЬНОГО РЕЖИМА
 ; ========================================================================
-; This GAL implements the core timing logic for text/character mode display.
-; It performs several critical functions:
-; 1. Clock division (DOTCLK / 8 = CHARCLK) for MC6845 timing
-; 2. Shift register load pulse generation
-; 3. Hardware cursor implementation via XOR logic
-; 4. Sync signal polarity inversion
+; Данная GAL реализует основную логику тайминга для текстового дисплея.
+; Выполняет несколько критически важных функций:
+; 1. Деление частоты (DOTCLK / 8 = CHARCLK) для тайминга MC6845
+; 2. Генерацию импульсов загрузки сдвигового регистра
+; 3. Реализацию аппаратного курсора через XOR логику
+; 4. Инверсию полярности синхросигналов
 
-; Line 1: Pins 1 -> 10  (Input pins)
-; Line 2: Pins 11 -> 20 (Output pins + power)
-DOTCLK  PIXELS   VSYNCIN  HSYNCIN  CURSOR  NC     NC         NC         RESET     GND
+; Пины 1 -> 10  (Входные пины)
+; Пины 11 -> 20 (Выходные пины + питание)
+;1      2        3        4        5       6      7          8          9         10
+DOTCLK  PIXELS   VSYNCIN  HSYNCIN  CURSOR  NC     NC         NC         NC        GND
 /OE     CHARCLK  Q1       Q0       /CSYNC  /LOAD  /HSYNCOUT  /VSYNCOUT  VIDEOOUT  VCC
+;11     12       13       14       15      16     17         28         19        20
 
-; Input Signal Descriptions:
-; DOTCLK   - System clock (13.318MHz for CGA timing)
+; Описание входных сигналов:
+; DOTCLK   - Системная частота (13.318МГц для CGA тайминга)
 ;
-; PIXELS  - Serial pixel data from 74HC165 shift register (1 bit per pixel)
-; RESET   - Active low reset signal to clear all counter bits
-; HSYNCIN - Horizontal sync from MC6845 (positive polarity)
-; VSYNCIN - Vertical sync from MC6845 (positive polarity)  
-; CURSOR  - Cursor signal from MC6845 (active high when cursor should be shown)
+; PIXELS  - Последовательные пиксельные данные от 74HC165 (1 бит на пиксель)
+; HSYNCIN - Горизонтальная синхронизация от MC6845 (положительная полярность)
+; VSYNCIN - Вертикальная синхронизация от MC6845 (положительная полярность)  
+; CURSOR  - Сигнал курсора от MC6845 (активный высокий уровень)
 
-; Output Signal Descriptions:
-; CHARCLK  - Character clock to MC6845 (DOTCLK ÷ 8, drives character timing)
-; Q0,Q1,CHARCLK - 3-bit binary counter outputs (internal feedback + Q2 as CHARCLK)
-; /LOAD    - Active low load pulse for 74HC165 shift register
-; /VSYNCOUT - Inverted vertical sync (negative polarity for VGA compatibility)
-; /HSYNCOUT - Inverted horizontal sync (negative polarity for VGA compatibility)
-; VIDEOOUT - Final pixel output with cursor XOR applied
+; Описание выходных сигналов:
+; CHARCLK  - Символьная частота для MC6845 (DOTCLK / 8, управляет тайминг символов)
+; /LOAD    - Активный низкий импульс загрузки для 74HC165
+; /VSYNCOUT - Инвертированная вертикальная синхронизация (отрицательная полярность для VGA)
+; /HSYNCOUT - Инвертированная горизонтальная синхронизация (отрицательная полярность для VGA)
+; /CSYNC    - Смешанный синхросигнал для копозитного выхода
+; VIDEOOUT - Финальный видеовыход с примененным XOR курсора
 
-; Logic Equations Block
+; Блок логических уравнений
 
-; --- Combinational Outputs ---
+; --- Комбинационные выходы ---
 
-; CURSOR LOGIC: XOR operation creates blinking/inverse cursor effect
-; When CURSOR=0: VIDEOOUT = PIXELS (normal display)
-; When CURSOR=1: VIDEOOUT = /PIXELS (inverted display at cursor position)
+; ЛОГИКА КУРСОРА: XOR операция создает мигающий/инверсный эффект курсора
+; При CURSOR=0: VIDEOOUT = PIXELS (нормальное отображение)
+; При CURSOR=1: VIDEOOUT = /PIXELS (инверсное отображение в позиции курсора)
 VIDEOOUT = PIXELS * /CURSOR + /PIXELS * CURSOR
 
-; SYNC INVERSION: MC6845 outputs positive sync, VGA expects negative sync
-HSYNCOUT = /HSYNCIN    ; Convert positive HSYNC to negative HSYNC
-VSYNCOUT = /VSYNCIN    ; Convert positive VSYNC to negative VSYNC
+; ИНВЕРСИЯ СИНХРОНИЗАЦИИ: MC6845 выдает положительную синхронизацию, VGA ожидает отрицательную
+HSYNCOUT = /HSYNCIN    ; Преобразование положительной HSYNC в отрицательную HSYNC
+VSYNCOUT = /VSYNCIN    ; Преобразование положительной VSYNC в отрицательную VSYNC
 
-; SHIFT REGISTER LOAD PULSE: Generated when counter=000 AND clock is low
-; This creates a narrow load pulse at the start of each 8-pixel character
-; The 74HC165 shift register loads parallel data on this pulse, then shifts
-; out serial pixel data synchronized to DOTCLK
-/LOAD.R = /CHARCLK + /Q1 + /Q0
-
-; --- Registered Outputs (3-bit Binary Counter) ---
-; This counter divides DOTCLK by 8 to create character timing
-; Counter sequence: 000→001→010→011→100→101→110→111→000...
-; Q2 output (MSB) becomes CHARCLK with 50% duty cycle
-
-; Q0 (LSB): Toggles every clock cycle when not in reset
-Q0.R = /RESET * /Q0
-
-; Q1: Toggles when Q0 transitions from 1→0 (every 2 clocks)
-Q1.R = /RESET * Q1 * /Q0 + /RESET * /Q1 * Q0
-
-; Q2(CHARCLK) (MSB): Toggles when Q1=1 and Q0 transitions from 1→0 (every 4 clocks)
-; Also serves as CHARCLK output - creates DOTCLK ÷ 8 frequency
-CHARCLK.R = /RESET * CHARCLK * /Q1 + /RESET * CHARCLK * /Q0 + /RESET * /CHARCLK * Q1 * Q0
-
-; Composite SYNC. HSYNC xor VSYNC
+; Композитная СИНХРОНИЗАЦИЯ. HSYNC xor VSYNC
 /CSYNC = HSYNCIN * /VSYNCIN + /HSYNCIN * VSYNCIN
 
+; ИМПУЛЬС ЗАГРУЗКИ СДВИГОВОГО РЕГИСТРА: Генерируется когда счетчик=000 И тактовая низкая
+; Создает узкий импульс загрузки в начале каждого 8-пиксельного символа
+; 74HC165 загружает параллельные данные по этому импульсу, затем сдвигает
+; последовательные пиксельные данные синхронно с DOTCLK
+/LOAD.R = /CHARCLK + /Q1 + /Q0
+
+; --- Регистрируемые выходы (3-битный двоичный счетчик) ---
+; Этот счетчик делит DOTCLK на 8 для создания символьного тайминга
+; Последовательность счетчика: 000→001→010→011→100→101→110→111→000...
+; Выход Q2 (старший бит) становится CHARCLK с коэффициентом заполнения 50%
+
+; Q0 (младший бит): Переключается каждый тактовый цикл
+Q0.R = /Q0
+
+; Q1: Переключается когда Q0=1 (XOR с Q0, каждые 2 такта)
+Q1.R = Q1 * /Q0 + /Q1 * Q0
+
+; Q2(CHARCLK) (старший бит): Переключается когда Q1=1 И Q0=1 (каждые 8 тактов)
+; Также служит как выход CHARCLK - создает частоту DOTCLK ÷ 8
+CHARCLK.R = CHARCLK * /Q1 + CHARCLK * /Q0 + /CHARCLK * Q1 * Q0
+
+
 DESCRIPTION
-This GAL implements all the glue logic for a minimal MC6845-based
-static video display card, with hardware cursor support.
+Данная GAL реализует всю связующую логику для минимальной статической
+видеокарты на базе MC6845 с поддержкой аппаратного курсора.
 
-Pinout:
-- Pin 02 (DOTCLK):   Short to Clock
-- Pin 11 (/OE):      MUST BE TIED TO GROUND for combinational outputs
-- Pin 12 (CHARCLK):  Character Clock for MC6845 (counter bit 2).
-- Pin 13 (Q0):       Internal counter bit 0 (feedback only)
-- Pin 14 (Q1):       Internal counter bit 1 (feedback only) 
-- Pin 15 (/LOAD):    Output, Active-low load pulse for shift register
-- Pin 17 (VSYNCOUT): Output, Inverted VSYNC
-- Pin 18 (HSYNCOUT): Output, Inverted HSYNC
-- Pin 19 (VIDEOOUT): Output, Final video signal to DAC
+Распиновка:
+- Пин 01 (DOTCLK):   Подключить к системной частоте
+- Пин 11 (/OE):      ДОЛЖЕН БЫТЬ ЗАЗЕМЛЕН для комбинационных выходов
+- Пин 12 (CHARCLK):  Символьная частота для MC6845 (бит счетчика 2)
+- Пин 13 (Q0):       Внутренний бит счетчика 0 (только обратная связь)
+- Пин 14 (Q1):       Внутренний бит счетчика 1 (только обратная связь)
+- Пин 15 (/LOAD):    Выход, активный низкий импульс загрузки для сдвигового регистра
+- Пин 17 (VSYNCOUT): Выход, инвертированная VSYNC
+- Пин 18 (HSYNCOUT): Выход, инвертированная HSYNC
+- Пин 19 (VIDEOOUT): Выход, финальный видеосигнал в ЦАП
 
-Counter Operation:
-- 3-bit counter Q2,Q1,Q0 counts: 0->1->2->3->4->5->6->7->0...
-- CHARCLK is DOTCLK / 8
-- /LOAD pulse generated when counter = 000 and CLK is low
-- RESET clears all counter bits
+Работа счетчика:
+- 3-битный счетчик Q2,Q1,Q0 считает: 0->1->2->3->4->5->6->7->0...
+- CHARCLK это DOTCLK / 8
+- Импульс /LOAD генерируется когда счетчик = 000 и CLK низкий
 
-Brief Description:
-This GAL16V8 serves as the core timing controller for text mode video display.
-It divides the dot clock by 8 to generate character timing, creates load pulses
-for the shift register, implements hardware cursor via XOR operation, and
-inverts sync signals. Essential for converting pixel streams to character-based
-display timing compatible with MC6845 CRTC.
+Краткое описание:
+Данная GAL16V8 служит основным контроллером тайминга для текстового видеодисплея.
+Она делит точечную частоту на 8 для генерации символьного тайминга, создает импульсы
+загрузки для сдвигового регистра, реализует аппаратный курсор через XOR операцию и
+инвертирует синхросигналы. Необходима для преобразования потоков пикселей в символьный
+тайминг дисплея, совместимый с MC6845 CRTC. Также обеспечивает композитные синхросигналы.

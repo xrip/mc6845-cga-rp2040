@@ -2,84 +2,84 @@ GAL16V8       ; Chip Type: ATF16V8B / GAL16V8
 CGAATTRIB     ; Project Name (max 8 chars)
 
 ; ========================================================================
-; TEXT MODE COLOR ATTRIBUTE PROCESSOR
+; ПРОЦЕССОР ЦВЕТОВЫХ АТРИБУТОВ ДЛЯ ТЕКСТОВОГО РЕЖИМА
 ; ========================================================================
-; This GAL implements color multiplexing for text mode display. It takes
-; a single pixel bit and 8-bit color attribute data, then generates the
-; appropriate 4-bit RGBI color output based on whether the pixel represents
-; foreground or background. The Display Enable signal gates all outputs
-; to create proper blanking during sync periods.
+; Данная GAL реализует мультиплексирование цветов для текстового дисплея. Принимает
+; один пиксельный бит и 8-битные данные цветового атрибута, затем генерирует
+; соответствующий 4-битный RGBI цветовой выход в зависимости от того, представляет ли
+; пиксель передний план или фон. Сигнал Display Enable блокирует все выходы
+; для создания правильного гашения во время периодов синхронизации.
 
-; Pin Assignment
-; Line 1: Pins 1 -> 10  (Input pins)
-; Line 2: Pins 11 -> 20 (Output pins + power)
+; Назначение пинов
+; Строка 1: Пины 1 -> 10  (Входные пины)
+; Строка 2: Пины 11 -> 20 (Выходные пины + питание)
 Clock FG0    FG1         FG2    FG3     BG0     BG1     BG2     BG3     GND
 DE    PIXEL  COMPOSITE   NC     NC      R       G       B       I       VCC
 
-; Input Signal Descriptions:
-; Clock - System clock (not used in this combinational design)
-; FG0-3 - Foreground color attribute bits (4-bit RGBI value)
-;         FG0=Blue, FG1=Green, FG2=Red, FG3=Intensity
-; BG0-3 - Background color attribute bits (4-bit RGBI value)  
-;         BG0=Blue, BG1=Green, BG2=Red, BG3=Intensity
-; DE    - Display Enable from MC6845 (active high during visible area)
-; PIXEL - Single pixel bit from character.pld (1=foreground, 0=background)
+; Описание входных сигналов:
+; Clock - Системная частота (не используется в данной комбинационной схеме)
+; FG0-3 - Биты цветового атрибута переднего плана (4-битное RGBI значение)
+;         FG0=Синий, FG1=Зеленый, FG2=Красный, FG3=Интенсивность
+; BG0-3 - Биты цветового атрибута фона (4-битное RGBI значение)  
+;         BG0=Синий, BG1=Зеленый, BG2=Красный, BG3=Интенсивность
+; DE    - Разрешение отображения от MC6845 (активный высокий уровень во время видимой области)
+; PIXEL - Одиночный пиксельный бит от character.pld (1=передний план, 0=фон)
 
-; Output Signal Descriptions:
-; R - Red component of final RGBI output
-; G - Green component of final RGBI output  
-; B - Blue component of final RGBI output
-; I - Intensity component of final RGBI output
+; Описание выходных сигналов:
+; R - Красный компонент финального RGBI выхода
+; G - Зеленый компонент финального RGBI выхода  
+; B - Синий компонент финального RGBI выхода
+; I - Компонент интенсивности финального RGBI выхода
 
-; CGA Color Attribute Format (8 bits total):
-; Bit 7-4: Foreground color (IRGB)
-; Bit 3-0: Background color (IRGB)
-; Standard CGA colors:
-; 0000=Black, 0001=Blue, 0010=Green, 0011=Cyan
-; 0100=Red,   0101=Magenta, 0110=Brown, 0111=Light Gray
-; 1000=Dark Gray, 1001=Light Blue, 1010=Light Green, 1011=Light Cyan
-; 1100=Light Red, 1101=Light Magenta, 1110=Yellow, 1111=White
+; Формат цветового атрибута CGA (всего 8 бит):
+; Биты 7-4: Цвет переднего плана (IRGB)
+; Биты 3-0: Цвет фона (IRGB)
+; Стандартные цвета CGA:
+; 0000=Черный, 0001=Синий, 0010=Зеленый, 0011=Голубой
+; 0100=Красный, 0101=Пурпурный, 0110=Коричневый, 0111=Светло-серый
+; 1000=Темно-серый, 1001=Светло-синий, 1010=Светло-зеленый, 1011=Светло-голубой
+; 1100=Светло-красный, 1101=Светло-пурпурный, 1110=Желтый, 1111=Белый
 
-; Logic Equations - Color Multiplexer Implementation
+; Логические уравнения - Реализация цветового мультиплексора
 
-; INTENSITY OUTPUT: Select between foreground/background intensity based on pixel
-; When PIXEL=1: Use foreground intensity (FG3)
-; When PIXEL=0: Use background intensity (BG3)
-; DE gates the output (0 during blanking periods)
+; ВЫХОД ИНТЕНСИВНОСТИ: Выбор между интенсивностью переднего плана/фона на основе пикселя
+; При PIXEL=1: Использовать интенсивность переднего плана (FG3)
+; При PIXEL=0: Использовать интенсивность фона (BG3)
+; DE блокирует выход (0 во время периодов гашения)
 I = PIXEL * FG3 * DE + /PIXEL * BG3 * DE
 
-; RED OUTPUT: Select between foreground/background red based on pixel
-; When PIXEL=1: Use foreground red (FG2)
-; When PIXEL=0: Use background red (BG2)
-; DE gates the output (0 during blanking periods)
+; КРАСНЫЙ ВЫХОД: Выбор между красным переднего плана/фона на основе пикселя
+; При PIXEL=1: Использовать красный переднего плана (FG2)
+; При PIXEL=0: Использовать красный фона (BG2)
+; DE блокирует выход (0 во время периодов гашения)
 R = PIXEL * FG2 * DE + /PIXEL * BG2 * DE
 
-; GREEN OUTPUT: Select between foreground/background green based on pixel
-; When PIXEL=1: Use foreground green (FG1)
-; When PIXEL=0: Use background green (BG1)
-; DE gates the output (0 during blanking periods)
+; ЗЕЛЕНЫЙ ВЫХОД: Выбор между зеленым переднего плана/фона на основе пикселя
+; При PIXEL=1: Использовать зеленый переднего плана (FG1)
+; При PIXEL=0: Использовать зеленый фона (BG1)
+; DE блокирует выход (0 во время периодов гашения)
 G = PIXEL * FG1 * DE + /PIXEL * BG1 * DE
 
-; BLUE OUTPUT: Select between foreground/background blue based on pixel
-; When PIXEL=1: Use foreground blue (FG0)
-; When PIXEL=0: Use background blue (BG0)
-; DE gates the output (0 during blanking periods)
+; СИНИЙ ВЫХОД: Выбор между синим переднего плана/фона на основе пикселя
+; При PIXEL=1: Использовать синий переднего плана (FG0)
+; При PIXEL=0: Использовать синий фона (BG0)
+; DE блокирует выход (0 во время периодов гашения)
 B = PIXEL * FG0 * DE + /PIXEL * BG0 * DE
 
-; --- NEW, CORRECTED COMPOSITE LUMA CHANNEL ---
-; The composite signal should represent the luminance of the final output.
-; The Intensity bit (I) is the perfect source for this luma signal.
-; This equation duplicates the logic for the 'I' output.
+; --- НОВЫЙ, ИСПРАВЛЕННЫЙ КОМПОЗИТНЫЙ КАНАЛ ЯРКОСТИ ---
+; Композитный сигнал должен представлять яркость финального выхода.
+; Бит интенсивности (I) является идеальным источником для этого сигнала яркости.
+; Это уравнение дублирует логику для выхода 'I'.
 COMPOSITE = PIXEL * FG3 * DE + /PIXEL * BG3 * DE
 
 DESCRIPTION
-It takes VIDEOOUT pixel from character.pld and mux color with it if DE is active
+Принимает пиксель VIDEOOUT от character.pld и мультиплексирует цвет с ним, если DE активен
 
-Brief Description:
-This GAL16V8 functions as a color multiplexer for text mode display. It receives
-a 1-bit pixel signal and 8-bit color attributes (4-bit foreground + 4-bit background),
-then selects between foreground/background colors based on the pixel value. The Display
-Enable (DE) signal gates the output to create proper blanking during sync periods.
-Outputs 4-bit RGBI color signals compatible with CGA color standards.
+Краткое описание:
+Данная GAL16V8 функционирует как цветовой мультиплексор для текстового дисплея. Получает
+1-битный пиксельный сигнал и 8-битные цветовые атрибуты (4-бит передний план + 4-бит фон),
+затем выбирает между цветами переднего плана/фона на основе значения пикселя. Сигнал
+Display Enable (DE) блокирует выход для создания правильного гашения во время периодов синхронизации.
+Выдает 4-битные RGBI цветовые сигналы, совместимые со стандартами цветов CGA.
 
 
