@@ -140,3 +140,243 @@ The RP2040 firmware in `main.c` currently implements:
 - ✅ Efficient GPIO usage for video output
 - ✅ Dynamic mode switching between text/graphics
 - ✅ Test pattern generation
+
+## GAL Programming Guide
+
+This section provides comprehensive guidance for programming GAL16V8 and GAL20V8 chips used in this project.
+
+### GAL Source File Structure (.pld files)
+
+Every GAL source file must follow this strict format:
+
+```
+GAL16V8         ; Chip type (line 1) - GAL16V8, GAL20V8, GAL22V10, or GAL20RA10
+SIGNATURE       ; 8-character signature (line 2) - written into GAL for identification
+
+; Pin declarations (2 lines total)
+Pin1  Pin2  Pin3  Pin4  Pin5  Pin6  Pin7  Pin8  Pin9  GND     ; Pins 1-10
+Pin11 Pin12 Pin13 Pin14 Pin15 Pin16 Pin17 Pin18 Pin19 VCC     ; Pins 11-20
+
+; Boolean equations
+OUTPUT1 = INPUT1 * INPUT2 + /INPUT3
+OUTPUT2.T = INPUT4 * INPUT5      ; Tristate output
+OUTPUT2.E = /INPUT6              ; Tristate enable
+OUTPUT3.R = INPUT7 * /OUTPUT3    ; Registered output
+
+DESCRIPTION
+Optional description text explaining the GAL's function.
+Can span multiple lines. Everything after DESCRIPTION is ignored by assembler.
+```
+
+### Pin Naming Conventions
+
+- **Reserved pins**: `GND` (pin 10/12), `VCC` (pin 20/24)
+- **Unused pins**: `NC` (Not Connected)
+- **Clock pins**: Any descriptive name (e.g., `DOTCLK`, `CLK`, `SYSCLK`)
+- **Active-low signals**: Prefix with `/` (e.g., `/RESET`, `/OE`, `/LOAD`)
+- **Signal names**: Use descriptive names (e.g., `HSYNC`, `PIXELS`, `CHARCLK`)
+
+### GAL16V8/GAL20V8 Architecture and Modes
+
+#### Pin Configuration
+- **GAL16V8**: 20-pin DIP (8 inputs + 8 configurable I/O)
+- **GAL20V8**: 24-pin DIP (12 inputs + 8 configurable I/O)
+
+#### Operating Modes
+The GAL automatically selects operating mode based on output types used:
+
+**Mode 1 (Combinational)**:
+- No registered or tristate outputs used
+- All outputs are combinational
+- GAL16V8: 10 inputs max, 8 outputs
+- GAL20V8: 14 inputs max, 8 outputs
+
+**Mode 2 (Tristate)**:
+- At least one tristate output (`.T`) used, no registered outputs
+- Pin 1 becomes general input, pin 11 becomes general input (GAL16V8)
+- Pin 1 becomes general input, pin 13 becomes general input (GAL20V8)
+
+**Mode 3 (Registered)**:
+- At least one registered output (`.R`) used
+- Pin 1 becomes CLOCK input, pin 11 becomes /OE input (GAL16V8)
+- Pin 1 becomes CLOCK input, pin 13 becomes /OE input (GAL20V8)
+
+### Boolean Logic Syntax
+
+#### Basic Operators
+- `*` : AND operation
+- `+` : OR operation  
+- `/` : NOT operation (negation)
+- `=` : Assignment
+
+#### Output Types
+- **Combinational**: `OUTPUT = logic_expression`
+- **Tristate**: `OUTPUT.T = logic_expression` + `OUTPUT.E = enable_expression`
+- **Registered**: `OUTPUT.R = logic_expression`
+
+#### Operator Precedence
+1. `/` (NOT) - highest precedence
+2. `*` (AND) 
+3. `+` (OR) - lowest precedence
+
+Use parentheses to override: `OUTPUT = A * (B + C)`
+
+### Product Term Limitations
+
+GAL chips have limited product terms per output:
+
+#### GAL16V8/GAL20V8
+- **Combinational outputs**: 8 product terms max
+- **Tristate outputs**: 7 product terms max (1 reserved for tristate control)
+- **Registered outputs**: 8 product terms max
+- **Tristate enable**: 1 product term only (no OR operations)
+
+#### Optimization Strategies
+
+**1. De Morgan's Laws**
+Convert positive logic to negative to reduce product terms:
+```
+; Instead of this (may exceed product terms):
+B = DE * PALETTE * (Q1*Q0*D7*D6 + /Q1*Q0*D5*D4 + ...)
+
+; Use this (fewer product terms):
+/B = /DE + /PALETTE + /Q1*/Q0*/D7*/D6 + /Q1*Q0*/D5*/D4 + ...
+```
+
+**2. Factor Common Terms**
+```
+; Instead of:
+OUT = A*B*C + A*B*D + A*B*E
+
+; Use:
+OUT = A*B*(C + D + E)
+```
+
+**3. Use Intermediate Signals**
+Break complex expressions across multiple outputs when possible.
+
+### Common Patterns and Examples
+
+#### 1. Binary Counter (Registered Outputs)
+```
+GAL16V8
+COUNTER
+
+CLOCK NC NC NC NC NC NC NC NC GND
+/OE   NC NC NC NC Q2 Q1 Q0 NC VCC
+
+Q0.R = /Q0                           ; Toggle every clock
+Q1.R = Q1*/Q0 + /Q1*Q0               ; Toggle when Q0 goes high
+Q2.R = Q2*/Q1 + Q2*/Q0 + /Q2*Q1*Q0   ; Toggle when Q1,Q0 both high
+
+DESCRIPTION
+3-bit binary counter
+```
+
+#### 2. Combinational Decoder
+```
+GAL16V8
+DECODER
+
+A0 A1 A2 A3 NC NC NC NC NC GND
+NC NC NC NC Y3 Y2 Y1 Y0 NC VCC
+
+Y0 = /A1 * /A0
+Y1 = /A1 *  A0  
+Y2 =  A1 * /A0
+Y3 =  A1 *  A0
+
+DESCRIPTION
+2-to-4 decoder
+```
+
+#### 3. Tristate Buffer
+```
+GAL16V8
+TRIBUFFER
+
+D0 D1 D2 D3 /OE NC NC NC NC GND
+NC NC NC NC Q3 Q2 Q1 Q0 NC VCC
+
+Q0.T = D0
+Q1.T = D1
+Q2.T = D2
+Q3.T = D3
+
+Q0.E = /OE
+Q1.E = /OE
+Q2.E = /OE
+Q3.E = /OE
+
+DESCRIPTION
+4-bit tristate buffer
+```
+
+### Debugging and Best Practices
+
+#### 1. Systematic Design Process
+1. Define all input/output signals clearly
+2. Create truth tables for complex logic
+3. Write equations incrementally
+4. Test each output independently
+5. Use the GAL optimizer for final simplification
+
+#### 2. Common Mistakes to Avoid
+- **Exceeded product terms**: Use De Morgan's laws or factor expressions
+- **Incorrect pin assignments**: Double-check pin numbers against datasheet
+- **Tristate enable complexity**: Keep tristate enable to single product term
+- **Feedback timing**: Be careful with registered output feedback in same equation
+
+#### 3. Verification Methods
+- **Simulation**: Use logic simulator before programming
+- **Documentation files**: Review .chp and .pin files for correct pin assignments  
+- **Fuse map**: Check .fus file to verify logic implementation
+- **Hardware testing**: Use logic analyzer or oscilloscope
+
+#### 4. Design Guidelines
+- **Use descriptive names**: Make pin names self-documenting
+- **Add comprehensive comments**: Explain complex logic thoroughly  
+- **Keep equations readable**: Use line breaks and indentation for clarity
+- **Document operating modes**: Clearly state which GAL mode is used
+- **Include pin descriptions**: Document each pin's function
+
+### Project-Specific GAL Usage
+
+#### character.pld (ATF16V8)
+- **Mode**: Registered (clock on pin 1, /OE on pin 11)
+- **Function**: 3-bit counter, sync inversion, cursor XOR, shift register control
+- **Key techniques**: Registered counter with feedback, XOR implementation
+
+#### attribute.pld (ATF16V8)  
+- **Mode**: Combinational
+- **Function**: 4-bit color multiplexer with display enable gating
+- **Key techniques**: Conditional output selection, enable gating
+
+#### graphics.pld (ATF20V8)
+- **Mode**: Registered (clock on pin 1, /OE on pin 13)
+- **Function**: CGA graphics mode processor with pixel counter
+- **Key techniques**: De Morgan's optimization, complex pixel extraction logic
+
+### GAL Assembler Usage (galette.exe)
+
+The GAL assembler converts .pld source files to .jed programming files:
+
+#### Command Line Usage
+```bash
+galette source.pld          # Creates source.jed
+```
+
+#### Generated Files
+- `.jed` - JEDEC programming file (required for programming)
+- `.chp` - Chip diagram (documentation)
+- `.pin` - Pin assignment list (documentation)  
+- `.fus` - Fuse map (documentation)
+
+#### Assembly Process
+1. Parse source file syntax
+2. Optimize Boolean equations (Quine-McCluskey algorithm)
+3. Map logic to GAL architecture
+4. Generate JEDEC fuse programming data
+5. Create documentation files
+
+This comprehensive guide should provide all necessary knowledge for understanding, modifying, and creating GAL programs for this video adapter project.
