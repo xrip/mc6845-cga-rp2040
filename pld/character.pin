@@ -10,7 +10,7 @@
    6   | NC       | Input
    7   | NC       | Input
    8   | NC       | Input
-   9   | RESET    | Input
+   9   | NC       | Input
   10   | GND      | GND
   11   | /OE      | /OE
   12   | CHARCLK  | Output
@@ -18,8 +18,8 @@
   14   | Q0       | Output
   15   | /CSYNC   | Output
   16   | /LOAD    | Output
-  17   | HSYNCOUT | Output
-  18   | VSYNCOUT | Output
+  17   | /HSYNCOUT | Output
+  18   | /VSYNCOUT | Output
   19   | VIDEOOUT | Output
   20   | VCC      | VCC
 

@@ -21,7 +21,7 @@
                           |                 |
                        D0 |  9           16 | NC
                           |                 |
-                  PALETTE | 10           15 | COMPOSITE
+                  PALETTE | 10           15 | LUMA
                           |                 |
                 INTENSITY | 11           14 | DE
                           |                 |

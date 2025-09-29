@@ -7,9 +7,9 @@
                           |                 |
                    PIXELS |  2           19 | VIDEOOUT
                           |                 |
-                  VSYNCIN |  3           18 | VSYNCOUT
+                  VSYNCIN |  3           18 | /VSYNCOUT
                           |                 |
-                  HSYNCIN |  4           17 | HSYNCOUT
+                  HSYNCIN |  4           17 | /HSYNCOUT
                           |                 |
                    CURSOR |  5           16 | /LOAD
                           |                 |
@@ -19,7 +19,7 @@
                           |                 |
                        NC |  8           13 | Q1
                           |                 |
-                    RESET |  9           12 | CHARCLK
+                       NC |  9           12 | CHARCLK
                           |                 |
                       GND | 10           11 | /OE
                           -------------------
