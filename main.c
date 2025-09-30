@@ -84,8 +84,11 @@ static const uint8_t mc6845_cga_40x25[16] = {
     0x02, // R8: Interlace Mode (Non-interlaced)
     0x07, // R9: Max Scanline Address (7, for 8 lines per char)
     0x00, // R10: Cursor Start Line (6)
-    0x07,  // R11: Cursor End Line (7)
-    0,0,0,0
+    0x07, // R11: Cursor End Line (7)
+    0x00, // R12: Start Addr (H)
+    0x00, // R13: Start Addr (L)
+    0x00, // R14: Cursor Addr (H)
+    0x00 // R15: Cursor Addr (L)
 };
 
 // MC6845 register values for CGA 80x25 Text Mode
@@ -100,12 +103,12 @@ static const uint8_t mc6845_cga_80x25[16] = {
     0x1C, // R7: VSync Position (28)
     0x02, // R8: Interlace Mode (Non-interlaced)
     0x07, // R9: Max Scanline Address (7, for 8 lines per char)
-    0x06, // R10: Cursor Start Line (6)
-    0x07,  // R11: Cursor End Line (7)
+    0x00, // R10: Cursor Start Line (6)
+    0x07, // R11: Cursor End Line (7)
     0x00, // R12: Start Addr (H)
-0x00, // R13: Start Addr (L)
-0x00, // R14: Cursor Addr (H)
-0x00 // R15: Cursor Addr (L)
+    0x00, // R13: Start Addr (L)
+    0x00, // R14: Cursor Addr (H)
+    0x00 // R15: Cursor Addr (L)
 };
 
 // MC6845 register values for CGA 320x200 4-Color Graphics Mode
@@ -125,31 +128,12 @@ static const uint8_t mc6845_cga_320x200[16] = {
     0x02, // R8: Interlace Mode (Non-interlaced)
     0x01, // R9: Max Scanline Address (1, for 2 lines per "char row")
     0x00, // R10: Cursor Start (Cursor typically disabled)
-    0x00,  // R11: Cursor End (Cursor typically disabled)
-    0,0,0,0
-};
-
-// ---------------- Default register values ----------------
-static const uint8_t mc6845_defaults[16] = {
-    113, // R0: Horizontal Total
-    80, // R1: Horizontal Displayed
-    90, // R2: HSync Position
-    10, // R3: HSync Width
-
-    31, // R4: Vertical Total
-    6, // R5: VTotal Adjust
-    25, // R6: Vertical Displayed
-    28, // R7: VSync Position
-    2, // R8: Interlace & Skew
-    7, // R9: Max Scanline
-    0x00, // R10: Cursor Start
-    0x0B, // R11: Cursor End
+    0x00, // R11: Cursor End (Cursor typically disabled)
     0x00, // R12: Start Addr (H)
     0x00, // R13: Start Addr (L)
     0x00, // R14: Cursor Addr (H)
     0x00 // R15: Cursor Addr (L)
 };
-
 
 // ==========================================================
 // Low-level helpers
@@ -257,7 +241,7 @@ void main() {
 
     uint32_t prev_addr = 0xFFFFFFFF;
 
-    uint8_t i = 0;
+    uint16_t i = 0;
     while (1) {
         const uint32_t addr = gpio_get_all() & 0x1FFFF;
 
@@ -288,8 +272,7 @@ void main() {
                 }
                 printf("Text mode 80x25 @ 14.31818 MHz\n");
             }
-        }
-        else if (c == 'g') {
+        } else if (c == 'g') {
             // Переключение в графический режим
             current_video_mode = VIDEO_MODE_GRAPHICS;
             current_clock_freq = CLOCK_FREQ_GRAPHICS;
@@ -298,9 +281,11 @@ void main() {
                 mc6845_write_register(r, mc6845_cga_320x200[r]);
             }
             printf("Graphics mode 320x200 @ 7.15909 MHz\n");
-        }
-        else if (c == 'r') init_test_patterns();
-        mc6845_write_register(15, i++);
-        busy_wait_ms(100);
+        } else if (c == 'r') init_test_patterns();
+        i++;
+        i %= (80 * 25);
+        mc6845_write_register(15, i & 0xff);
+        mc6845_write_register(14, i >> 8);
+        busy_wait_ms(10);
     }
 }
