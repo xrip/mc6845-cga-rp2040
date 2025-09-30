@@ -12,11 +12,11 @@ CGACHAR       ; Project Name (max 8 chars)
 ; 4. Инверсию полярности синхросигналов
 
 ; Пины 1 -> 10  (Входные пины)
-; Пины 11 -> 20 (Выходные пины + питание)
 ;1      2        3        4        5       6      7          8          9         10
 DOTCLK  PIXELS   VSYNCIN  HSYNCIN  CURSOR  NC     NC         NC         NC        GND
 /OE     CHARCLK  Q1       Q0       /CSYNC  /LOAD  /HSYNCOUT  /VSYNCOUT  VIDEOOUT  VCC
 ;11     12       13       14       15      16     17         28         19        20
+; Пины 11 -> 20 (Выходные пины + питание)
 
 ; Описание входных сигналов:
 ; DOTCLK   - Системная частота (13.318МГц для CGA тайминга)
