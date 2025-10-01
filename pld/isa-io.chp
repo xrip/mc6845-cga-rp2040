@@ -1,0 +1,25 @@
+
+
+                                GAL16V8
+
+                          -------\___/-------
+                       A8 |  1           20 | VCC
+                          |                 |
+                       A7 |  2           19 | NC
+                          |                 |
+                       A6 |  3           18 | NC
+                          |                 |
+                       A5 |  4           17 | /CRTCCS
+                          |                 |
+                       A4 |  5           16 | /CGAIOBLOCK
+                          |                 |
+                       A3 |  6           15 | /MODEREGCE
+                          |                 |
+                       A2 |  7           14 | /COLORREGCE
+                          |                 |
+                       A1 |  8           13 | /STATUSREGCE
+                          |                 |
+                       A0 |  9           12 | CRTCRS
+                          |                 |
+                      GND | 10           11 | A9
+                          -------------------

@@ -1,0 +1,25 @@
+
+
+ Pin # | Name     | Pin Type
+-----------------------------
+   1   | A8       | Input
+   2   | A7       | Input
+   3   | A6       | Input
+   4   | A5       | Input
+   5   | A4       | Input
+   6   | A3       | Input
+   7   | A2       | Input
+   8   | A1       | Input
+   9   | A0       | Input
+  10   | GND      | GND
+  11   | A9       | Input
+  12   | CRTCRS   | Output
+  13   | /STATUSREGCE | Output
+  14   | /COLORREGCE | Output
+  15   | /MODEREGCE | Output
+  16   | /CGAIOBLOCK | Output
+  17   | /CRTCCS  | Output
+  18   | NC       | NC
+  19   | NC       | NC
+  20   | VCC      | VCC
+
