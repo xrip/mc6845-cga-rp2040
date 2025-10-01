@@ -19,6 +19,8 @@ def walk_map(m):
         print(' bits set:', ', '.join(formatted_addresses))
 
 memory_map = [
+    ( 8191, 'CGA RAM' ),
+    ( 8192, 'CGA RAM' ),
     ( 0xB8000, 'CGA RAM' ),
     ( 0xB9000, 'CGA RAM' ),
     ( 0xBA000, 'CGA RAM' ),
@@ -35,6 +37,10 @@ memory_map = [ # PV7
 """
 
 io_map = [
+    ( 0x3D8, 'IO 3D8h' ),
+    ( 0x3D9, 'IO 3D9h' ),
+    ( 0x3DA, 'IO 3DAh' ),
+
 ]
 
 print('Memory Map:')
