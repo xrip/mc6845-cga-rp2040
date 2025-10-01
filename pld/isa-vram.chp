@@ -1,0 +1,25 @@
+
+
+                                GAL16V8
+
+                          -------\___/-------
+                      A19 |  1           20 | VCC
+                          |                 |
+                      A18 |  2           19 | VRAMA0
+                          |                 |
+                      A17 |  3           18 | /BANK0CS
+                          |                 |
+                      A16 |  4           17 | /BANK1CS
+                          |                 |
+                      A15 |  5           16 | /VRAMWR
+                          |                 |
+                      A13 |  6           15 | /VRAMOE
+                          |                 |
+                     GSEL |  7           14 | /MC6845ACCESS
+                          |                 |
+                    /MEMR |  8           13 | /CPUACCESS
+                          |                 |
+                    /MEMW |  9           12 | NC
+                          |                 |
+                      GND | 10           11 | A0
+                          -------------------

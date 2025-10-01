@@ -1,0 +1,25 @@
+
+
+ Pin # | Name     | Pin Type
+-----------------------------
+   1   | A19      | Input
+   2   | A18      | Input
+   3   | A17      | Input
+   4   | A16      | Input
+   5   | A15      | Input
+   6   | A13      | Input
+   7   | GSEL     | Input
+   8   | /MEMR    | Input
+   9   | /MEMW    | Input
+  10   | GND      | GND
+  11   | A0       | Input
+  12   | NC       | NC
+  13   | /CPUACCESS | Output
+  14   | /MC6845ACCESS | Output
+  15   | /VRAMOE  | Output
+  16   | /VRAMWR  | Output
+  17   | /BANK1CS | Output
+  18   | /BANK0CS | Output
+  19   | VRAMA0   | Output
+  20   | VCC      | VCC
+
