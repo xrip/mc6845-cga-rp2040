@@ -1,0 +1,25 @@
+
+
+ Pin # | Name     | Pin Type
+-----------------------------
+   1   | CLK      | Clock
+   2   | COL80MODE | Input
+   3   | NC       | Input
+   4   | NC       | Input
+   5   | NC       | Input
+   6   | NC       | Input
+   7   | NC       | Input
+   8   | NC       | Input
+   9   | NC       | Input
+  10   | GND      | GND
+  11   | /OE      | /OE
+  12   | QFAST    | Output
+  13   | Q3       | Output
+  14   | Q2       | Output
+  15   | Q1       | Output
+  16   | Q0       | Output
+  17   | CHARCLOCK | Output
+  18   | BASECLOCK | Output
+  19   | /LOAD    | Output
+  20   | VCC      | VCC
+
