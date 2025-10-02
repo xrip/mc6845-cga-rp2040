@@ -5,9 +5,9 @@
                           -------\___/-------
                       CLK |  1           20 | VCC
                           |                 |
-                COL80MODE |  2           19 | /LOAD
+                   ISACLK |  2           19 | /LOAD
                           |                 |
-                       NC |  3           18 | BASECLOCK
+                COL80MODE |  3           18 | DOTCLOCK
                           |                 |
                        NC |  4           17 | CHARCLOCK
                           |                 |
@@ -19,7 +19,7 @@
                           |                 |
                        NC |  8           13 | Q3
                           |                 |
-                       NC |  9           12 | QFAST
+                       NC |  9           12 | NC
                           |                 |
                       GND | 10           11 | /OE
                           -------------------

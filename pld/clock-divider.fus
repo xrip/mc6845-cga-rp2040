@@ -1,19 +1,19 @@
 
 
 Pin 19 = /LOAD        XOR = 1   AC1 = 0
-  0  x--- ---- ---- ---- --x- ---- ---- ----
-  1  x--- ---- ---- --x- ---- ---- ---- ----
-  2  -x-- ---- ---- ---- ---- --x- ---- ----
-  3  -x-- ---- ---- ---- --x- ---- ---- ----
+  0  ---- x--- ---- ---- --x- ---- ---- ----
+  1  ---- x--- ---- --x- ---- ---- ---- ----
+  2  ---- -x-- ---- ---- ---- --x- ---- ----
+  3  ---- -x-- ---- ---- --x- ---- ---- ----
   4  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
   5  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
   6  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
   7  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
 
-Pin 18 = BASECLOCK    XOR = 1   AC1 = 1
+Pin 18 = DOTCLOCK     XOR = 1   AC1 = 1
   8  ---- ---- ---- ---- ---- ---- ---- ----
-  9  x--- ---- ---- ---- ---- ---- ---- --x-
- 10  -x-- ---- ---- --x- ---- ---- ---- ----
+  9  x--- x--- ---- ---- ---- ---- ---- ----
+ 10  ---- -x-- ---- --x- ---- ---- ---- ----
  11  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  12  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  13  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
@@ -22,8 +22,8 @@ Pin 18 = BASECLOCK    XOR = 1   AC1 = 1
 
 Pin 17 = CHARCLOCK    XOR = 1   AC1 = 1
  16  ---- ---- ---- ---- ---- ---- ---- ----
- 17  x--- ---- ---- ---- ---- --x- ---- ----
- 18  -x-- ---- ---- ---- ---- ---- --x- ----
+ 17  ---- x--- ---- ---- ---- --x- ---- ----
+ 18  ---- -x-- ---- ---- ---- ---- --x- ----
  19  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  20  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  21  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
@@ -70,8 +70,8 @@ Pin 13 = Q3           XOR = 1   AC1 = 0
  54  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  55  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
 
-Pin 12 = QFAST        XOR = 1   AC1 = 0
- 56  ---- ---- ---- ---- ---- ---- ---- ---x
+Pin 12 = NC           XOR = 0   AC1 = 0
+ 56  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  57  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  58  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
  59  xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
