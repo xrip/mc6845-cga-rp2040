@@ -74,20 +74,23 @@ Q3.R = Q3 * /Q2 + Q3 * /Q1 + Q3 * /Q0 + /Q3 * Q2 * Q1 * Q0
 ; Выбор между 14.31818 МГц и 7.15909 МГц в зависимости от режима
 ; COL80MODE=1 (80 столбцов / 640×200): DOTCLOCK = ISACLK (14.31818 МГц)
 ; COL80MODE=0 (40 столбцов / 320×200): DOTCLOCK = Q0 (ISACLK / 2 = 7.15909 МГц)
-DOTCLOCK = COL80MODE * ISACLK + /COL80MODE * Q0
+DOTCLOCK = COL80MODE * ISACLK
+         + /COL80MODE * Q0
 
 
 ; --- 3. МУЛЬТИПЛЕКСОР СИМВОЛЬНОЙ ЧАСТОТЫ (CHARCLOCK) ---
 ; Character Clock всегда равен DOTCLOCK / 8, но использует разные биты счётчика:
 ; COL80MODE=1: CHARCLOCK = Q2 (ISACLK / 8 = 14.31818 / 8 = 1.789773 МГц)
 ; COL80MODE=0: CHARCLOCK = Q3 (ISACLK / 16 = 14.31818 / 16 = 894.886 кГц)
-CHARCLOCK = COL80MODE * Q2 + /COL80MODE * Q3
+CHARCLOCK = COL80MODE * Q2
+          + /COL80MODE * Q3
 
 ; --- 4. СИГНАЛ /LOAD ДЛЯ 74HC165 ---
-; /LOAD активен LOW когда младшие биты счётчика = 00 (параллельная загрузка)
-; 80 столбцов (COL80MODE=1): активен когда Q1=0 И Q0=0 (каждые 8 тактов ISACLK)
-; 40 столбцов (COL80MODE=0): активен когда Q2=0 И Q1=0 (каждые 8 тактов Q0)
-/LOAD.R = COL80MODE * Q1 + COL80MODE * Q0 + /COL80MODE * Q2 + /COL80MODE * Q1
+; /LOAD активен LOW когда биты счётчика и клока = 1111 (параллельная загрузка)
+; 80 столбцов (COL80MODE=1): активен когда Q2=1 И Q1=1 и Q0=1 И ISACLK=1(каждые 8 тактов Q0)
+; 40 столбцов (COL80MODE=0): активен когда Q3=1 И Q2=1 и Q1=1 И Q0=1 (каждые 8 тактов Q1)
+/LOAD.R = COL80MODE  * Q2 * Q1 * Q0 * ISACLK
+        + /COL80MODE * Q3 * Q2 * Q1 * Q0
 
 DESCRIPTION
 Программируемый делитель частоты для CGA адаптера с автоматическим
