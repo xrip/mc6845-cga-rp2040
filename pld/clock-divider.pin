@@ -13,7 +13,7 @@
    9   | NC       | Input
   10   | GND      | GND
   11   | /OE      | /OE
-  12   | NC       | NC
+  12   | STROBE   | Output
   13   | Q3       | Output
   14   | Q2       | Output
   15   | Q1       | Output

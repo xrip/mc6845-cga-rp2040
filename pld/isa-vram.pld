@@ -21,8 +21,6 @@ A0  NC  /CPUACCESS /MC6845ACCESS /VRAMOE /VRAMWR /BANK1CS /BANK0CS VRAMA0 VCC
 ; GSEL      - Сигнал выбора режима (0=Текст, 1=Графика) из регистра 3D8h
 ; /MEMW     - Сигнал "Memory Write" с шины ISA
 ; /MEMR     - Сигнал "Memory Read" с шины ISA
-; /OEGAL (Pin 11) - Глобальный Output Enable. ДОЛЖЕН БЫТЬ ПОДКЛЮЧЕН К ЗЕМЛЕ,
-;                    чтобы все выходы были всегда активны.
 
 ; Описание выходных сигналов:
 ; /BANK0CS, /BANK1CS - Chip Select для банков 0 и 1.
